@@ -4,288 +4,354 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
+  Switch,
   StyleSheet,
+  ScrollView,
+  Alert
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import Icon from "react-native-vector-icons/FontAwesome";
-import { useRouter } from "expo-router";
+import Navbar from "../components/navbar";   // <-- your fixed bottom nav
+import { router } from "expo-router";
 
-export default function ContactEventScreen() {
-  const router = useRouter();
+export default function RegistrationDetailsScreen() {
+  // Date & Time states
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(new Date());
+  const [startTime, setStartTime] = useState(new Date());
+  const [endTime, setEndTime] = useState(new Date());
 
-  // 🔹 States
-  const [contacts, setContacts] = useState([
-    { name: "", phone: "", email: "" },
-  ]);
-  const [highlightText, setHighlightText] = useState("");
-  const [highlights, setHighlights] = useState([
-    "Open to 2nd & 3rd year B-Tech students",
-    "Participate all CSE Stream branches",
-    "Teams of 2–4 members",
-    "Mentorship from industry experts",
-  ]);
+  // Pickers
+  const [showStartDate, setShowStartDate] = useState(false);
+  const [showEndDate, setShowEndDate] = useState(false);
+  const [showStartTime, setShowStartTime] = useState(false);
+  const [showEndTime, setShowEndTime] = useState(false);
 
-  const [scheduleInput, setScheduleInput] = useState("");
-  const [schedule, setSchedule] = useState([
-    { time: "10:00 AM", task: "Coding begins" },
-    { time: "01:00 PM", task: "Lunch" },
-    { time: "06:00 PM", task: "1st Check Point" },
-  ]);
+  // Other states
+  const [isFreeEvent, setIsFreeEvent] = useState(true);
+  const [isAllDept, setIsAllDept] = useState(true);
+  const [venue, setVenue] = useState("");
+  const [participants, setParticipants] = useState("");
+  const [price, setPrice] = useState("");
 
-  const [newScheduleItems, setNewScheduleItems] = useState([]);
+  const [showRegWindow, setShowRegWindow] = useState(false);
 
-  // 🔹 Handlers
-  const addContact = () =>
-    setContacts([...contacts, { name: "", phone: "", email: "" }]);
+  const [selectedDept, setSelectedDept] = useState(null);
 
-  const addHighlight = () => {
-    if (highlightText.trim()) {
-      setHighlights([...highlights, highlightText.trim()]);
-      setHighlightText("");
+  const departments = [
+    "CSE", "ECE", "EEE", "CIVIL",
+    "MECH", "IT", "AIDS", "AI & ML"
+  ];
+
+  const saveEvent = async () => {
+    try {
+      const eventData = {
+        startDate,
+        endDate,
+        startTime,
+        endTime,
+        isFreeEvent,
+        isAllDept,
+        venue,
+        participants,
+        price,
+        selectedDept
+      };
+
+      const response = await fetch("http://192.168.93.107:5000/create-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(eventData),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        Alert.alert("Success", "Event Stored in Database!");
+        router.push("/(tabs)/Frontend/Organizer/contact");
+      } else {
+        Alert.alert("Error", "Something went wrong!");
+        
+      }
+    } catch (err) {
+      Alert.alert("Error", err.message);
     }
   };
 
-  const addScheduleItem = () => {
-    setNewScheduleItems([...newScheduleItems, { text: "" }]);
-  };
-
-  const saveNewScheduleItems = () => {
-    const validItems = newScheduleItems.filter((item) => item.text.trim());
-    const formattedItems = validItems.map((item) => ({
-      time: "New",
-      task: item.text.trim(),
-    }));
-    setSchedule([...schedule, ...formattedItems]);
-    setNewScheduleItems([]); // clear temporary inputs
-  };
-
   return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Icon name="arrow-left" size={20} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerText}>Create Event</Text>
-        </View>
+    <>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.header}>Registration Details</Text>
 
-        {/* Tabs */}
-        <View style={styles.tabs}>
-          <TouchableOpacity style={styles.tab}>
-            <Text style={styles.tabText}>Basic Info</Text>
+        {/* 📅 Date Pickers */}
+        <Text style={styles.sectionTitle}>Date & Time</Text>
+        <View style={styles.row}>
+          <TouchableOpacity
+            style={styles.inputWithIcon}
+            onPress={() => setShowStartDate(true)}
+          >
+            <Text>{startDate.toDateString()}</Text>
+            <Icon name="calendar" size={20} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.tab}>
-            <Text style={styles.tabText}>Registrations</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.tab, styles.activeTab]}>
-            <Text style={styles.activeTabText}>Contact</Text>
-          </TouchableOpacity>
-        </View>
 
-        {/* Contact Section */}
-        <Text style={styles.sectionTitle}>Event Content & Contacts</Text>
-        <View style={styles.card}>
-          <Text style={styles.subHeader}>Contact Person</Text>
-
-          {contacts.map((c, i) => (
-            <View key={i} style={styles.inputGroup}>
-              <TextInput style={styles.input} placeholder="Name e.g. Priya" />
-              <TextInput
-                style={styles.input}
-                placeholder="Phone e.g. +91 8888888888"
-                keyboardType="phone-pad"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Email e.g. priya@gmail.com"
-                keyboardType="email-address"
-              />
-            </View>
-          ))}
-
-          <TouchableOpacity style={styles.addButton} onPress={addContact}>
-            <Text style={styles.addButtonText}>+ Add Contact</Text>
+          <TouchableOpacity
+            style={styles.inputWithIcon}
+            onPress={() => setShowEndDate(true)}
+          >
+            <Text>{endDate.toDateString()}</Text>
+            <Icon name="calendar" size={20} />
           </TouchableOpacity>
         </View>
 
-        {/* Highlights Section */}
-        <View style={styles.card}>
-          <Text style={styles.subHeader}>Highlights & Prize</Text>
+        {showStartDate && (
+          <DateTimePicker
+            value={startDate}
+            mode="date"
+            onChange={(e, d) => {
+              setShowStartDate(false);
+              if (d) setStartDate(d);
+            }}
+          />
+        )}
 
-          <View style={styles.row}>
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              placeholder="e.g. Prize Pool worth ₹50,000"
-              value={highlightText}
-              onChangeText={setHighlightText}
-            />
-            <TouchableOpacity style={styles.smallButton} onPress={addHighlight}>
-              <Text style={styles.smallButtonText}>+ Add Item</Text>
-            </TouchableOpacity>
+        {showEndDate && (
+          <DateTimePicker
+            value={endDate}
+            mode="date"
+            onChange={(e, d) => {
+              setShowEndDate(false);
+              if (d) setEndDate(d);
+            }}
+          />
+        )}
+
+        {/* ⏰ Time Pickers */}
+        <View style={styles.row}>
+          <TouchableOpacity
+            style={styles.inputWithIcon}
+            onPress={() => setShowStartTime(true)}
+          >
+            <Text>{startTime.toLocaleTimeString()}</Text>
+            <Icon name="clock-o" size={20} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.inputWithIcon}
+            onPress={() => setShowEndTime(true)}
+          >
+            <Text>{endTime.toLocaleTimeString()}</Text>
+            <Icon name="clock-o" size={20} />
+          </TouchableOpacity>
+        </View>
+
+        {showStartTime && (
+          <DateTimePicker
+            value={startTime}
+            mode="time"
+            onChange={(e, d) => {
+              setShowStartTime(false);
+              if (d) setStartTime(d);
+            }}
+          />
+        )}
+
+        {showEndTime && (
+          <DateTimePicker
+            value={endTime}
+            mode="time"
+            onChange={(e, d) => {
+              setShowEndTime(false);
+              if (d) setEndTime(d);
+            }}
+          />
+        )}
+
+        {/* 🏠 Venue */}
+        <Text style={styles.sectionTitle}>Venue & Capacity</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Venue (e.g., Seminar Hall)"
+          value={venue}
+          onChangeText={setVenue}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Participants"
+          value={participants}
+          onChangeText={setParticipants}
+          keyboardType="numeric"
+        />
+
+        {/* 💰 Price */}
+        <View style={styles.rowBetween}>
+          <TextInput
+            style={[styles.input, { flex: 1, marginRight: 10 }]}
+            placeholder="Price"
+            value={price}
+            editable={!isFreeEvent}
+            onChangeText={setPrice}
+            keyboardType="numeric"
+          />
+
+          <View style={styles.switchRow}>
+            <Text>Free Event</Text>
+            <Switch value={isFreeEvent} onValueChange={setIsFreeEvent} />
           </View>
-
-          {highlights.map((h, i) => (
-            <Text key={i} style={styles.bullet}>
-              • {h}
-            </Text>
-          ))}
         </View>
 
-        {/* Schedule Section */}
-        <View style={styles.card}>
-          <Text style={styles.subHeader}>Schedule & Agenda</Text>
+        {/* 👤 Registration Window */}
+        <Text style={styles.sectionTitle}>Registration Window</Text>
+        <View style={styles.switchRow}>
+          <Text style={{ marginRight: 10 }}>Enable Requirements</Text>
+          <Switch value={showRegWindow} onValueChange={setShowRegWindow} />
+        </View>
 
-          {schedule.map((item, i) => (
-            <View key={i} style={styles.scheduleItem}>
-              <Text style={styles.scheduleTime}>{item.time}</Text>
-              <Text style={styles.scheduleTask}>{item.task}</Text>
-            </View>
-          ))}
+        {showRegWindow && (
+          <View style={styles.infoBox}>
+            <Text>Student ID</Text>
+            <Text>Year of Study</Text>
+            <Text>Branch/Department</Text>
+          </View>
+        )}
 
-          {/* New inputs for schedule */}
-          {newScheduleItems.map((item, index) => (
-            <TextInput
-              key={index}
-              style={[styles.input, { marginTop: 8 }]}
-              placeholder="Type schedule item (e.g. 07:00 PM - Result)"
-              value={item.text}
-              onChangeText={(text) => {
-                const updated = [...newScheduleItems];
-                updated[index].text = text;
-                setNewScheduleItems(updated);
+        {/* 🏫 Department Section */}
+        <Text style={styles.sectionTitle}>Event Audience & Visibility</Text>
+
+        <View style={styles.rowBetween}>
+          <View style={styles.switchRow}>
+            <Text style={{ marginRight: 10 }}>All Departments</Text>
+            <Switch
+              value={isAllDept}
+              onValueChange={(v) => {
+                setIsAllDept(v);
+                if (v) setSelectedDept(null);
               }}
             />
-          ))}
-
-          <TouchableOpacity style={styles.addButton} onPress={addScheduleItem}>
-            <Text style={styles.addButtonText}>+ Add Schedule Item</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.saveButton} onPress={saveNewScheduleItems}>
-            <Text style={styles.smallButtonText}>Save Changes</Text>
-          </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Buttons */}
-        <View style={styles.bottomButtons}>
-          <TouchableOpacity style={styles.draftButton}>
-            <Text style={styles.draftText}>Save as Draft</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.submitButton}>
-            <Text style={styles.submitText}>Submit for Approval</Text>
-          </TouchableOpacity>
-        </View>
+        {!isAllDept && (
+          <View style={styles.deptBox}>
+            <Text style={styles.sectionTitle}>Select Department</Text>
+
+            {departments.map((d) => (
+              <TouchableOpacity
+                key={d}
+                style={[
+                  styles.deptItem,
+                  selectedDept === d && styles.deptSelected
+                ]}
+                onPress={() => setSelectedDept(d)}
+              >
+                <Text style={styles.deptText}>{d}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* ➡ Next */}
+        <TouchableOpacity style={styles.nextBtn} onPress={saveEvent}>
+          <Text style={styles.nextText}>Next: Event Content</Text>
+        </TouchableOpacity>
       </ScrollView>
-    </View>
+
+      {/* Fixed Navbar */}
+      <Navbar />
+    </>
   );
 }
 
+// ----------------------------------------------------
+//                      STYLES
+// ----------------------------------------------------
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F6FF" },
-  headerRow: {
-    backgroundColor: "#000",
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 15,
-    gap: 10,
+  container: {
+    padding: 20,
+    paddingBottom: 120,
+    backgroundColor: "#f4efff",
   },
-  headerText: { color: "#fff", fontSize: 18, fontWeight: "700" },
-
-  tabs: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingVertical: 10,
+  header: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 15,
   },
-  tab: {
-    backgroundColor: "#E8E0FF",
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-  },
-  activeTab: { backgroundColor: "#B19CFF" },
-  tabText: { color: "#000", fontWeight: "500" },
-  activeTabText: { color: "#fff", fontWeight: "600" },
-
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginTop: 10,
-    marginLeft: 20,
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 15,
+    marginBottom: 10,
   },
-
-  card: {
-    backgroundColor: "#fff",
-    margin: 20,
-    padding: 15,
-    borderRadius: 15,
-    elevation: 3,
-  },
-  subHeader: { fontSize: 16, fontWeight: "600", marginBottom: 10 },
-  inputGroup: { marginBottom: 10 },
-  input: {
-    backgroundColor: "#F2F1FF",
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 8,
-  },
-
-  addButton: {
-    backgroundColor: "#7B61FF",
-    padding: 10,
-    borderRadius: 8,
-    alignItems: "center",
-    marginTop: 5,
-  },
-  addButtonText: { color: "#fff", fontWeight: "600" },
-
-  row: { flexDirection: "row", alignItems: "center", gap: 10 },
-  smallButton: {
-    backgroundColor: "#7B61FF",
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-  },
-  smallButtonText: { color: "#fff", fontWeight: "600" },
-  bullet: { color: "#333", marginTop: 6 },
-
-  scheduleItem: {
+  row: {
     flexDirection: "row",
-    backgroundColor: "#F1ECFF",
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 8,
     justifyContent: "space-between",
   },
-  scheduleTime: { fontWeight: "700", color: "#000" },
-  scheduleTask: { color: "#333" },
-
-  saveButton: {
-    backgroundColor: "#7B61FF",
+  inputWithIcon: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: "#fff",
+    width: "48%",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 10,
+    padding: 12,
+    backgroundColor: "#fff",
     marginTop: 10,
-    paddingVertical: 10,
-    borderRadius: 8,
+  },
+  rowBetween: {
+    marginTop: 10,
+    flexDirection: "row",
     alignItems: "center",
   },
-
-  bottomButtons: {
+  switchRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 30,
-    marginHorizontal: 10,
+    alignItems: "center",
   },
-  draftButton: {
-    backgroundColor: "#E8E0FF",
-    paddingVertical: 12,
-    paddingHorizontal: 25,
+  infoBox: {
+    borderWidth: 1,
     borderRadius: 10,
+    padding: 15,
+    backgroundColor: "#fff",
+    borderColor: "#ccc",
   },
-  draftText: { color: "#000", fontWeight: "600" },
-  submitButton: {
-    backgroundColor: "#7B61FF",
-    paddingVertical: 12,
-    paddingHorizontal: 25,
+  deptBox: {
+    marginTop: 10,
+    backgroundColor: "#fff",
+    padding: 15,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#ccc",
   },
-  submitText: { color: "#fff", fontWeight: "600" },
+  deptItem: {
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    marginVertical: 5,
+    backgroundColor: "#fafafa",
+  },
+  deptSelected: {
+    backgroundColor: "#dcd0ff",
+    borderColor: "#5a35ff",
+  },
+  deptText: {
+    fontSize: 15,
+  },
+  nextBtn: {
+    backgroundColor: "#5a35ff",
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 25,
+  },
+  nextText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
 });

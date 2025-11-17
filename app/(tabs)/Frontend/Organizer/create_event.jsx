@@ -6,263 +6,326 @@ import {
   TouchableOpacity,
   Image,
   ScrollView,
-  StyleSheet,
   Alert,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
+
 import * as ImagePicker from "expo-image-picker";
-import Icon from "react-native-vector-icons/FontAwesome";
 import { useRouter } from "expo-router";
+import Icon from "react-native-vector-icons/MaterialIcons";
+import BottomNavBar from "../components/navbar";
 
 export default function CreateEventScreen() {
   const router = useRouter();
+
+  const [eventName, setEventName] = useState("");
+  const [dept, setDept] = useState("");
   const [eventType, setEventType] = useState("Hackathon");
   const [description, setDescription] = useState("");
-  const [imageUri, setImageUri] = useState(null);
+  const [imageBase64, setImageBase64] = useState(null);
 
-  // Function to pick image from gallery
+  const eventTypes = ["Hackathon", "Workshop", "Cultural", "Seminar"];
+
   const pickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Permission required", "Please allow access to gallery.");
-      return;
-    }
-
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 1,
+      base64: true,
+      quality: 0.8,
     });
 
     if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
+      setImageBase64(result.assets[0].base64);
+    }
+  };
+
+  const submitBasicInfo = async () => {
+    if (!eventName || !dept || !description || !imageBase64) {
+      return Alert.alert("Please fill all fields");
+    }
+
+    try {
+      const res = await fetch("http://192.168.93.107:5000/addBasicInfo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventName,
+          dept,
+          eventType,
+          poster: imageBase64,
+          description,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        router.push("/(tabs)/Frontend/Organizer/register_event");
+      } else {
+        Alert.alert("Error", data.error);
+      }
+    } catch (err) {
+      Alert.alert("Network Error");
     }
   };
 
   return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <Text style={styles.header}>Create Event</Text>
-
-        {/* Tabs */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity style={[styles.tab, styles.activeTab]}>
-            <Text style={styles.activeTabText}>Basic Info</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.tab}>
-            <Text style={styles.tabText}>Registrations</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.tab}>
-            <Text style={styles.tabText}>Contact</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Basic Info */}
-        <Text style={styles.subHeader}>Basic Info</Text>
-
-        <Text style={styles.label}>Event Name</Text>
-        <TextInput style={styles.input} placeholder="e.g. Code Vault" />
-
-        <Text style={styles.label}>Department</Text>
-        <TextInput style={styles.input} placeholder="e.g. CS&BS" />
-
-        <Text style={styles.label}>Event Type</Text>
-        <View style={styles.eventTypeContainer}>
-          {["Hackathon", "Workshop", "Cultural", "Seminar"].map((type) => (
-            <TouchableOpacity
-              key={type}
-              style={[
-                styles.eventTypeButton,
-                eventType === type && styles.selectedType,
-              ]}
-              onPress={() => setEventType(type)}
-            >
-              <Text
-                style={[
-                  styles.eventTypeText,
-                  eventType === type && styles.selectedTypeText,
-                ]}
-              >
-                {type}
-              </Text>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
+          {/* HEADER */}
+          <View style={styles.topHeader}>
+            <TouchableOpacity onPress={() => router.back()}>
+              <Icon name="arrow-back" size={26} color="#fff" />
             </TouchableOpacity>
-          ))}
-        </View>
+            <Text style={styles.headerTitle}>Create Event</Text>
+          </View>
 
-        {/* Image Upload Section */}
-        <View style={styles.imageSection}>
-          <Text style={styles.label}>Event Poster</Text>
+          {/* TOP TABS */}
+          <View style={styles.tabsContainer}>
+            <View style={styles.activeTab}>
+              <Text style={styles.activeTabText}>Basic Info</Text>
+            </View>
+            <View style={styles.inactiveTab}>
+              <Text style={styles.inactiveTabText}>Registrations</Text>
+            </View>
+            <View style={styles.inactiveTab}>
+              <Text style={styles.inactiveTabText}>Contact</Text>
+            </View>
+          </View>
 
-          <TouchableOpacity style={styles.uploadBox} onPress={pickImage}>
-            {imageUri ? (
-              <View style={styles.imageBlock}>
+          {/* FORM CARD */}
+          <View style={styles.formCard}>
+            <Text style={styles.sectionTitle}>Basic Info</Text>
+
+            {/* Event Name */}
+            <Text style={styles.label}>Event Name</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. Code Vault"
+              placeholderTextColor="#999"
+              value={eventName}
+              onChangeText={setEventName}
+            />
+
+            {/* Department */}
+            <Text style={styles.label}>Department</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. CS&BS"
+              placeholderTextColor="#999"
+              value={dept}
+              onChangeText={setDept}
+            />
+
+            {/* Event Type */}
+            <Text style={styles.label}>Event Type</Text>
+            <View style={styles.eventTypeRow}>
+              {eventTypes.map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[
+                    styles.eventTypePill,
+                    eventType === type && styles.eventTypeActive,
+                  ]}
+                  onPress={() => setEventType(type)}
+                >
+                  <Text
+                    style={[
+                      styles.eventTypeText,
+                      eventType === type && styles.eventTypeTextActive,
+                    ]}
+                  >
+                    {type}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Poster Upload Box */}
+            <View style={styles.posterCard}>
+              {imageBase64 ? (
                 <Image
-                  source={{ uri: imageUri }}
-                  style={styles.poster}
-                  resizeMode="cover"
+                  source={{ uri: "data:image/png;base64," + imageBase64 }}
+                  style={styles.posterImg}
                 />
-              </View>
-            ) : (
-              <View style={styles.uploadPlaceholder}>
-                <Icon name="plus" size={30} color="#7B61FF" />
-                <Text style={styles.uploadText}>Upload Image</Text>
-              </View>
-            )}
+              ) : (
+                <TouchableOpacity style={styles.uploadBox} onPress={pickImage}>
+                  <Icon name="add" size={32} color="#555" />
+                  <Text style={styles.uploadText}>Upload Image</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Description */}
+            <Text style={styles.label}>Description</Text>
+            <TextInput
+              style={styles.descriptionInput}
+              placeholder="Write event description..."
+              placeholderTextColor="#aaa"
+              multiline
+              value={description}
+              onChangeText={setDescription}
+              textAlignVertical="top"
+            />
+          </View>
+
+          {/* Next Button */}
+          <TouchableOpacity style={styles.nextButton} onPress={submitBasicInfo}>
+            <Text style={styles.nextButtonText}>Next: Registration Details</Text>
           </TouchableOpacity>
+        </ScrollView>
 
-          <Text style={styles.posterDate}>Date: Dec 10, 2025</Text>
-        </View>
-
-        {/* Description */}
-        <Text style={styles.label}>Description</Text>
-        <TextInput
-          style={styles.descriptionInput}
-          multiline
-          placeholder="Write about your event..."
-          value={description}
-          onChangeText={setDescription}
-          textAlignVertical="top"
-        />
-
-        {/* Next Button */}
-        <TouchableOpacity
-          style={styles.nextButton}
-          onPress={() =>
-            router.push("/(tabs)/Frontend/Organizer/register_event")
-          }
-        >
-          <Text style={styles.nextButtonText}>Next: Registration Details</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </View>
+        <BottomNavBar />
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F4EFFF" },
+  container: {
+    flex: 1,
+    backgroundColor: "#EFEAFE",
+  },
 
-  header: {
+  /* Top header */
+  topHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: 50,
+    paddingBottom: 20,
+    paddingHorizontal: 16,
+    backgroundColor: "#000",
+  },
+  headerTitle: {
+    color: "#fff",
     fontSize: 22,
     fontWeight: "700",
-    padding: 20,
-    color: "#000",
+    marginLeft: 10,
   },
 
-  tabContainer: {
+  /* Tabs */
+  tabsContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
-    marginHorizontal: 10,
+    padding: 10,
+    backgroundColor: "#EFEAFE",
   },
-  tab: {
-    backgroundColor: "#fff",
+  activeTab: {
+    backgroundColor: "#C9B8FF",
+    paddingHorizontal: 20,
     paddingVertical: 8,
-    paddingHorizontal: 15,
     borderRadius: 20,
-    elevation: 2,
   },
-  activeTab: { backgroundColor: "#D9C8FF" },
-  tabText: { color: "#000" },
-  activeTabText: { color: "#000", fontWeight: "600" },
-
-  subHeader: {
-    fontSize: 18,
+  activeTabText: {
+    color: "#000",
     fontWeight: "600",
-    marginTop: 15,
-    marginLeft: 20,
   },
+  inactiveTab: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  inactiveTabText: {
+    color: "#666",
+  },
+
+  /* Form Card */
+  formCard: {
+    backgroundColor: "#EFEAFE",
+    padding: 16,
+  },
+
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 10,
+  },
+
   label: {
-    marginHorizontal: 20,
-    marginTop: 10,
-    fontWeight: "500",
+    marginTop: 12,
+    marginBottom: 4,
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#333",
   },
+
   input: {
     backgroundColor: "#fff",
-    borderRadius: 8,
     padding: 12,
-    marginHorizontal: 20,
-    marginTop: 5,
-    elevation: 2,
+    borderRadius: 10,
+    fontSize: 15,
   },
 
-  eventTypeContainer: {
+  /* Event Type */
+  eventTypeRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginHorizontal: 20,
-    marginTop: 10,
+    marginVertical: 8,
   },
-  eventTypeButton: {
+  eventTypePill: {
     backgroundColor: "#fff",
-    borderRadius: 20,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    paddingHorizontal: 15,
-    marginRight: 10,
-    marginBottom: 10,
-    elevation: 2,
+    borderRadius: 20,
+    marginRight: 8,
+    marginBottom: 8,
   },
-  selectedType: { backgroundColor: "#BDA3FF" },
-  eventTypeText: { color: "#000" },
-  selectedTypeText: { color: "#fff", fontWeight: "600" },
+  eventTypeActive: {
+    backgroundColor: "#8359FF",
+  },
+  eventTypeText: { color: "#333" },
+  eventTypeTextActive: { color: "#fff", fontWeight: "700" },
 
-  // Image Upload
-  imageSection: {
-    marginHorizontal: 20,
-    marginTop: 15,
+  /* Poster */
+  posterCard: {
+    backgroundColor: "#fff",
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 12,
+  },
+  posterImg: {
+    width: "100%",
+    height: 180,
+    borderRadius: 10,
   },
   uploadBox: {
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    marginTop: 8,
-    elevation: 3,
-    height: 200,
+    height: 180,
     justifyContent: "center",
     alignItems: "center",
-    overflow: "hidden",
-  },
-  imageBlock: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 10,
-    overflow: "hidden",
-  },
-  poster: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 10,
-  },
-  uploadPlaceholder: {
-    justifyContent: "center",
-    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#999",
+    borderRadius: 12,
+    borderStyle: "dashed",
   },
   uploadText: {
-    color: "#7B61FF",
-    fontWeight: "600",
-    marginTop: 5,
-  },
-  posterDate: {
     marginTop: 6,
-    color: "#555",
-    fontSize: 13,
-    marginLeft: 5,
+    color: "#444",
   },
 
-  // Description Box
+  /* Description */
   descriptionInput: {
     backgroundColor: "#fff",
-    margin: 20,
+    borderRadius: 10,
     padding: 12,
-    borderRadius: 8,
-    height: 150,
-    elevation: 2,
+    height: 120,
+    fontSize: 14,
   },
 
-  // Button
+  /* Next Button */
   nextButton: {
-    backgroundColor: "#7B61FF",
+    backgroundColor: "#6B3EFF",
+    margin: 16,
     padding: 14,
-    borderRadius: 8,
-    marginHorizontal: 20,
-    marginBottom: 50,
+    borderRadius: 12,
     alignItems: "center",
   },
-  nextButtonText: { color: "#fff", fontWeight: "600", fontSize: 16 },
+  nextButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
 });
