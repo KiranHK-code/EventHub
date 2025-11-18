@@ -24,47 +24,80 @@ export default function CreateEventScreen() {
   const [dept, setDept] = useState("");
   const [eventType, setEventType] = useState("Hackathon");
   const [description, setDescription] = useState("");
-  const [imageBase64, setImageBase64] = useState(null);
+  const [imageUri, setImageUri] = useState(null);
 
   const eventTypes = ["Hackathon", "Workshop", "Cultural", "Seminar"];
 
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      base64: true,
-      quality: 0.8,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        quality: 0.8,
+      });
 
-    if (!result.canceled) {
-      setImageBase64(result.assets[0].base64);
+      if (!result.canceled) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch (err) {
+      console.error('Image pick error', err);
+      Alert.alert('Image Error', 'Unable to pick image');
     }
   };
 
   const submitBasicInfo = async () => {
-    if (!eventName || !dept || !description || !imageBase64) {
+    if (!eventName || !dept || !description) {
       return Alert.alert("Please fill all fields");
     }
 
     try {
-      const res = await fetch("http://192.168.93.107:5000/addBasicInfo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      let posterUrl = "";
+
+      // If an image is selected, upload it first
+      if (imageUri) {
+        const filename = imageUri.split('/').pop();
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+        const formData = new FormData();
+        formData.append('image', {
+          uri: imageUri,
+          name: filename,
+          type,
+        });
+
+        const uploadResp = await fetch('http://192.168.93.107:5000/upload-poster', {
+          method: 'POST',
+          body: formData,
+          headers: { Accept: 'application/json' },
+        });
+
+        const uploadJson = await uploadResp.json();
+        if (!uploadJson.success) {
+          return Alert.alert('Upload Error', uploadJson.error || 'Failed to upload image');
+        }
+        posterUrl = uploadJson.url;
+      }
+
+      const res = await fetch('http://192.168.93.107:5000/addBasicInfo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           eventName,
           dept,
           eventType,
-          poster: imageBase64,
+          image: posterUrl, // server maps `image` -> poster url
           description,
         }),
       });
 
       const data = await res.json();
-      if (res.ok) {
-        router.push("/(tabs)/Frontend/Organizer/register_event");
+      if (res.ok && data.success) {
+        router.push('/(tabs)/Frontend/Organizer/register_event');
       } else {
-        Alert.alert("Error", data.error);
+        Alert.alert('Error', data.error || 'Failed to save event');
       }
     } catch (err) {
-      Alert.alert("Network Error");
+      console.error(err);
+      Alert.alert('Network Error', err.message);
     }
   };
 
@@ -146,11 +179,8 @@ export default function CreateEventScreen() {
 
             {/* Poster Upload Box */}
             <View style={styles.posterCard}>
-              {imageBase64 ? (
-                <Image
-                  source={{ uri: "data:image/png;base64," + imageBase64 }}
-                  style={styles.posterImg}
-                />
+              {imageUri ? (
+                <Image source={{ uri: imageUri }} style={styles.posterImg} />
               ) : (
                 <TouchableOpacity style={styles.uploadBox} onPress={pickImage}>
                   <Icon name="add" size={32} color="#555" />

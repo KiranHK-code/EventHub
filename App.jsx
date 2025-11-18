@@ -21,6 +21,7 @@ export default function App() {
           component={RegistrationDetailsScreen}
           options={{ headerShown: false }}
         />
+         
       </Stack.Navigator>
     </NavigationContainer>
   );

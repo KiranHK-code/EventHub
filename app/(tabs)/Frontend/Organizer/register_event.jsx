@@ -71,7 +71,6 @@ export default function RegistrationDetailsScreen() {
         router.push("/(tabs)/Frontend/Organizer/contact");
       } else {
         Alert.alert("Error", "Something went wrong!");
-        
       }
     } catch (err) {
       Alert.alert("Error", err.message);

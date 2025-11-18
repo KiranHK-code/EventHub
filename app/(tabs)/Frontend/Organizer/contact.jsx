@@ -10,14 +10,12 @@ import {
   ActivityIndicator
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter } from "expo-router";
 
 const API_BASE_URL = "http://192.168.93.107:5000";
 
 export default function ContactEventScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const [eventId, setEventId] = useState(null);
   const [contacts, setContacts] = useState([
     { name: "", phone: "", email: "" },
   ]);
@@ -31,15 +29,7 @@ export default function ContactEventScreen() {
   ]);
   const [loading, setLoading] = useState(false);
 
-  // Get eventId from route params
-  useEffect(() => {
-    if (params?.eventId) {
-      setEventId(params.eventId);
-    } else {
-      Alert.alert("Error", "Event ID not found. Please create event first.");
-      router.back();
-    }
-  }, [params?.eventId]);
+  
 
   const addContact = () =>
     setContacts([...contacts, { name: "", phone: "", email: "" }]);
@@ -105,10 +95,6 @@ export default function ContactEventScreen() {
   };
 
   const saveContact = async () => {
-    if (!eventId) {
-      Alert.alert("Error", "Event ID is missing");
-      return;
-    }
 
     if (!validateInputs()) return;
 
@@ -119,7 +105,6 @@ export default function ContactEventScreen() {
       const validHighlights = highlights.filter(h => h.text.trim());
 
       const contactData = {
-        eventId: eventId, // Use actual eventId from route or storage
         name: validContacts[0].name, // Primary contact
         phone: validContacts[0].phone,
         email: validContacts[0].email,
