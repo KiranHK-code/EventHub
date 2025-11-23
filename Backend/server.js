@@ -28,6 +28,7 @@ const BasicInfoSchema = new mongoose.Schema(
     description: { type: String, required: true },
     // poster now stores a public URL (e.g. '/uploads/...') instead of base64
     poster: { type: String },
+    status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   },
   { timestamps: true }
 );
@@ -172,6 +173,46 @@ app.get("/review", async (req, res) => {
   } catch (err) {
     console.error("❌ /review error:", err.message);
     res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// --------- UPDATE EVENT STATUS (APPROVE/REJECT) ----------
+app.put("/review/:eventId", async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const { status } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid eventId format"
+      });
+    }
+
+    if (!['approved', 'rejected', 'pending'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: "Status must be 'approved', 'rejected', or 'pending'"
+      });
+    }
+
+    const updated = await BasicInfo.findByIdAndUpdate(
+      eventId,
+      { status },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        error: "Event not found"
+      });
+    }
+
+    res.json({ success: true, message: `Event ${status}!`, event: updated });
+  } catch (err) {
+    console.error("❌ UPDATE STATUS ERROR:", err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

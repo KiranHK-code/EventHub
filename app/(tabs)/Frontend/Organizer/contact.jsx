@@ -104,10 +104,9 @@ export default function ContactEventScreen() {
       const validContacts = contacts.filter(c => c.name && c.phone && c.email);
       const validHighlights = highlights.filter(h => h.text.trim());
 
+      // Server expects `contacts` as an array (each with name/phone/email)
       const contactData = {
-        name: validContacts[0].name, // Primary contact
-        phone: validContacts[0].phone,
-        email: validContacts[0].email,
+        contacts: validContacts.map(c => ({ name: c.name, phone: c.phone, email: c.email })),
         highlights: validHighlights,
         schedule: schedule,
       };
@@ -122,7 +121,6 @@ export default function ContactEventScreen() {
 
       if (result.success) {
         Alert.alert("Success", "Contact details saved!");
-        router.push("/(tabs)/Frontend/Admin/review");
       } else {
         Alert.alert("Error", result.error || "Failed to save contact");
       }
