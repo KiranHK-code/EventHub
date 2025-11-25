@@ -1,17 +1,37 @@
 import { View, TouchableOpacity, Text, StyleSheet } from "react-native";
 import Icon from "react-native-vector-icons/MaterialIcons";
-import { useRouter } from "expo-router";
+import { useRouter, useSegments } from "expo-router";
 
 export default function BottomNavBar() {
   const router = useRouter();
+  const segments = useSegments();
+  const roleSegment = (segments?.[2] || "").toLowerCase();
 
-  const navItems = [
-    { name: "Home", icon: "home", route: "/home" },
-    { name: "Events", icon: "event", route: "/events" },
-    { name: "Alerts", icon: "notifications", route: "/alerts" },
-    { name: "Register", icon: "app-registration", route: "/register" },
-    { name: "Profile", icon: "person", route: "/profile" },
-  ];
+  const navItemsMap = {
+    organizer: [
+      { name: "Home", icon: "home", route: "/(tabs)/Frontend/Organizer/home" },
+      { name: "Events", icon: "event", route: "/(tabs)/Frontend/Organizer/create_event" },
+      { name: "Alerts", icon: "notifications", route: "/(tabs)/Frontend/Organizer/alert" },
+      { name: "Register", icon: "app-registration", route: "Register" },
+      { name: "Profile", icon: "person", route: "/(tabs)/Frontend/Organizer/org_profile" },
+    ],
+    student: [
+      { name: "Home", icon: "home", route: "/(tabs)/Frontend/Student/student_home" },
+      { name: "Events", icon: "event", route: "/(tabs)/Frontend/Student/student_event" },
+      { name: "Alerts", icon: "notifications", route: "alerts" },
+      { name: "Register", icon: "app-registration", route: "register" },
+      { name: "Profile", icon: "person", route: "/(tabs)/Frontend/Student/profile" },
+    ],
+    admin: [
+      { name: "Home", icon: "home", route: "/(tabs)/Frontend/Admin/re" },
+      { name: "Events", icon: "event", route: "/(tabs)/Frontend/Admin/review" },
+      { name: "Alerts", icon: "notifications", route: "/(tabs)/Frontend/Admin/alert" },
+      { name: "Register", icon: "app-registration", route: "/(tabs)/Frontend/Admin/Edit_profil" },
+      { name: "Profile", icon: "person", route: "/(tabs)/Frontend/Admin/profile1" },
+    ],
+  };
+
+  const navItems = navItemsMap[roleSegment] ?? navItemsMap.organizer;
 
   return (
     <View style={styles.navContainer}>
@@ -21,7 +41,7 @@ export default function BottomNavBar() {
           style={styles.navItem}
           onPress={() => router.push(item.route)}
         >
-          <Icon name={item.icon} size={26} color="#7B61FF" />
+          <Icon name={item.icon} size={26} color="#896af1ff" />
           <Text style={styles.navText}>{item.name}</Text>
         </TouchableOpacity>
       ))}
@@ -46,7 +66,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   navText: {
-    color: "#7B61FF",
+    color: "#4d2af9ff",
     fontSize: 12,
     marginTop: 2,
   },

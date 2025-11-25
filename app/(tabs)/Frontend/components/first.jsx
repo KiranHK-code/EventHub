@@ -23,7 +23,7 @@ export default function RoleScreen({ navigation }) {
       </TouchableOpacity>
 
       {/* STUDENT BUTTON */}
-      <TouchableOpacity style={styles.btn}>
+      <TouchableOpacity style={styles.btn} onPress={()=>{router.push("/(tabs)/Frontend/Student/student_home")}}>
         <Icon name="graduation-cap" size={22} color="#000" style={styles.icon} />
         <Text style={styles.btnText}>STUDENT</Text>
       </TouchableOpacity>

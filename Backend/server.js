@@ -41,7 +41,7 @@ const BasicInfo = mongoose.model("BasicInfo", BasicInfoSchema);
 // ---------------------------------------------------------
 const RegistrationSchema = new mongoose.Schema(
   {
-    
+    eventId: { type: mongoose.Schema.Types.ObjectId, ref: 'BasicInfo', required: true },
 
     startDate: { type: String, required: true },
     endDate: { type: String, required: true },
@@ -69,13 +69,11 @@ const Registration = mongoose.model("Registration", RegistrationSchema);
 // 3️⃣ CONTACT INFO SCHEMA (Contact Page)
 // ---------------------------------------------------------
 const ContactSchema = new mongoose.Schema({
-  contacts: [
-    {
-      name: { type: String, required: true },
-      phone: { type: String, required: true },
-      email: { type: String, required: true }
-    }
-  ],
+  eventId: { type: mongoose.Schema.Types.ObjectId, ref: 'BasicInfo', required: true },
+  
+  name: { type: String, required: true },
+  phone: { type: String, required: true },
+  email: { type: String, required: true },
 
   highlights: [
     {
@@ -95,9 +93,13 @@ const ContactSchema = new mongoose.Schema({
 
 const ContactInfo = mongoose.model("ContactInfo", ContactSchema);
 
+// ---------------------------------------------------------
+// 5️⃣ NOTIFICATION SCHEMA
+// ---------------------------------------------------------
+// Notifications have been removed from this backend build.
 
 // ---------------------------------------------------------
-// 4️⃣ ROUTES
+// 6️⃣ ROUTES
 // ---------------------------------------------------------
 
 // upload route
@@ -128,12 +130,28 @@ app.post("/addBasicInfo", async (req, res) => {
 // --------- SAVE REGISTRATION DETAILS ----------
 app.post("/create-event", async (req, res) => {
   try {
-    
+    const { eventId, startDate, endDate, startTime, endTime, isFreeEvent, price, isAllDept, selectedDept, venue, participants } = req.body;
 
-    const reg = new Registration(req.body);
+    if (!eventId) {
+      return res.status(400).json({ success: false, error: "Event ID is required" });
+    }
+
+    const reg = new Registration({
+      eventId,
+      startDate,
+      endDate,
+      startTime,
+      endTime,
+      isFreeEvent,
+      price,
+      isAllDept,
+      selectedDept,
+      venue,
+      participants
+    });
     await reg.save();
 
-    res.json({ success: true, message: "Registration details saved!" });
+    res.json({ success: true, message: "Registration details saved!", registrationId: reg._id });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
   }
@@ -142,12 +160,23 @@ app.post("/create-event", async (req, res) => {
 // --------- SAVE CONTACT DETAILS ----------
 app.post("/contact", async (req, res) => {
   try {
-    
+    const { eventId, name, phone, email, highlights, schedule } = req.body;
 
-    const contact = new ContactInfo(req.body);
+    if (!eventId || !name || !phone || !email) {
+      return res.status(400).json({ success: false, error: "Missing required fields" });
+    }
+
+    const contact = new ContactInfo({
+      eventId,
+      name,
+      phone,
+      email,
+      highlights: highlights || [],
+      schedule: schedule || []
+    });
     await contact.save();
 
-    res.json({ success: true, message: "Contact info saved!" });
+    res.json({ success: true, message: "Contact info saved!", contactId: contact._id });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
   }
@@ -157,16 +186,36 @@ app.post("/contact", async (req, res) => {
 app.get("/review", async (req, res) => {
   try {
     const basicInfos = await BasicInfo.find({});
-    const registrations = await Registration.find({});
-    const contacts = await ContactInfo.find({});
 
-    console.log("📋 /review - BasicInfos:", basicInfos);
+    const combined = await Promise.all(
+      basicInfos.map(async (basic) => {
+        const registration = await Registration.findOne({ eventId: basic._id });
+        const contact = await ContactInfo.findOne({ eventId: basic._id });
 
-    const combined = basicInfos.map((basic, index) => ({
-      basicInfo: basic,
-      eventDetails: registrations[index] || {},
-      contactInfo: contacts[index] || {}
-    }));
+        return {
+          basicInfo: basic,
+          eventDetails: registration ? {
+            startDate: registration.startDate,
+            endDate: registration.endDate,
+            startTime: registration.startTime,
+            endTime: registration.endTime,
+            isFreeEvent: registration.isFreeEvent,
+            price: registration.price,
+            isAllDept: registration.isAllDept,
+            selectedDept: registration.selectedDept,
+            venue: registration.venue,
+            participants: registration.participants
+          } : {},
+          contactInfo: contact ? {
+            name: contact.name,
+            email: contact.email,
+            phone: contact.phone,
+            highlights: contact.highlights,
+            schedule: contact.schedule
+          } : {}
+        };
+      })
+    );
 
     console.log("📋 /review combined response:", combined);
     res.json(combined);
@@ -215,6 +264,13 @@ app.put("/review/:eventId", async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// --------- CREATE NOTIFICATION (when event is submitted) ----------
+// Notification endpoints removed.
+
+// Device token registration endpoints removed.
+
+// Notification listing/marking endpoints removed.
 
 // ---------------------------------------------------------
 app.listen(5000, () => console.log("Server running on port 5000"));

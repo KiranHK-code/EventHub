@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,25 +7,63 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  StatusBar,
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
-import { useRouter } from "expo-router";
+import MaterialIcon from "react-native-vector-icons/MaterialIcons";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import BottomNavBar from "../components/navbar";
+import Constants from "expo-constants";
 
-const API_BASE_URL = "http://192.168.93.107:5000";
+const cleanUrl = (value) => {
+  if (!value) return null;
+  let url = value.trim();
+  if (!/^https?:\/\//.test(url)) {
+    url = `http://${url}`;
+  }
+  return url.replace(/\/$/, "");
+};
+
+const guessExpoHost = () => {
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    Constants.manifest2?.extra?.expoClient?.hostUri ||
+    Constants.manifest?.hostUri;
+
+  if (!hostUri) return null;
+  const host = hostUri.split(":")[0];
+  if (!host) return null;
+  return `http://${host}:5000`;
+};
+
+const getBaseUrl = () => {
+  const envUrl = cleanUrl(process.env.EXPO_PUBLIC_API_BASE_URL);
+  if (envUrl) return envUrl;
+
+  const expoHostUrl = guessExpoHost();
+  if (expoHostUrl) return expoHostUrl;
+
+  if (Platform.OS === "android") return "http://10.0.2.2:5000";
+  if (Platform.OS === "ios") return "http://127.0.0.1:5000";
+  return "http://192.168.93.107:5000";
+};
 
 export default function ContactEventScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const eventId = params?.eventId;
+  const registrationDraft = params?.registrationDraft ? JSON.parse(params.registrationDraft) : null;
+  const apiBase = useMemo(() => getBaseUrl(), []);
   const [contacts, setContacts] = useState([
     { name: "", phone: "", email: "" },
   ]);
-  const [highlights, setHighlights] = useState([
-    { text: "" }
-  ]);
+  const [highlights, setHighlights] = useState([{ text: "" }]);
   const [schedule, setSchedule] = useState([
-    { time: "10:00 AM", task: "Coding begins" },
-    { time: "01:00 PM", task: "Lunch" },
-    { time: "06:00 PM", task: "1st Check Point" },
+    { time: "", task: "" },
+    
   ]);
   const [loading, setLoading] = useState(false);
 
@@ -98,67 +136,113 @@ export default function ContactEventScreen() {
 
     if (!validateInputs()) return;
 
+    if (!eventId) {
+      Alert.alert("Error", "Event ID not found. Please go back and try again.");
+      return;
+    }
+
     setLoading(true);
     try {
-      // Filter and format data
+      // First, save registration details if they exist
+      if (registrationDraft) {
+        const registrationData = {
+          eventId: eventId,
+          ...registrationDraft
+        };
+
+        console.log("📝 Saving registration with data:", registrationData);
+        const regResponse = await fetch(`${apiBase}/create-event`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(registrationData),
+        });
+
+        const regResult = await regResponse.json();
+        console.log("✅ Registration response:", regResult);
+        if (!regResult.success) {
+          console.log("❌ Registration failed:", regResult.error);
+          Alert.alert("Error", regResult.error || "Failed to save registration");
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Then save contact details
       const validContacts = contacts.filter(c => c.name && c.phone && c.email);
       const validHighlights = highlights.filter(h => h.text.trim());
 
-      // Server expects `contacts` as an array (each with name/phone/email)
       const contactData = {
-        contacts: validContacts.map(c => ({ name: c.name, phone: c.phone, email: c.email })),
+        eventId: eventId, // Add eventId
+        name: validContacts[0].name, // Primary contact
+        phone: validContacts[0].phone,
+        email: validContacts[0].email,
         highlights: validHighlights,
         schedule: schedule,
       };
 
-      const response = await fetch(`${API_BASE_URL}/contact`, {
+      console.log("📝 Saving contact with data:", contactData);
+      const response = await fetch(`${apiBase}/contact`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(contactData),
       });
 
       const result = await response.json();
+      console.log("✅ Contact response:", result);
 
       if (result.success) {
-        Alert.alert("Success", "Contact details saved!");
+        console.log("✅ Event submitted for approval");
+        Alert.alert("Success", "Event submitted for approval!");
       } else {
+        console.log("❌ Contact save failed:", result.error);
         Alert.alert("Error", result.error || "Failed to save contact");
       }
     } catch (err) {
+      console.error("❌ Save error:", err);
       Alert.alert("Error", err.message);
     } finally {
       setLoading(false);
     }
   };
 
-
   return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Icon name="arrow-left" size={20} color="#fff" />
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <View style={styles.container}>
+        <View style={styles.topHeader}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <MaterialIcon name="arrow-back" size={26} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerText}>Create Event</Text>
+          <Text style={styles.headerTitle}>Contact</Text>
         </View>
 
-        {/* Tabs */}
-        <View style={styles.tabs}>
-          <TouchableOpacity style={styles.tab}>
-            <Text style={styles.tabText}>Basic Info</Text>
+        <View style={styles.tabsContainer}>
+          <TouchableOpacity
+            style={[styles.tabPill, styles.inactiveTab]}
+            onPress={() => router.push("/(tabs)/Frontend/Organizer/create_event")}
+          >
+            <Text style={styles.inactiveTabText}>Basic Info</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.tab}>
-            <Text style={styles.tabText}>Registrations</Text>
+          <TouchableOpacity
+            style={[styles.tabPill, styles.inactiveTab]}
+            onPress={() => router.push("/(tabs)/Frontend/Organizer/register_event")}
+          >
+            <Text style={styles.inactiveTabText}>Registrations</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.tab, styles.activeTab]}>
+          <TouchableOpacity style={[styles.tabPill, styles.activeTab]} disabled>
             <Text style={styles.activeTabText}>Contact</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Contact Section */}
-        <Text style={styles.sectionTitle}>Event Content & Contacts</Text>
-        <View style={styles.card}>
+        <ScrollView
+          style={styles.scrollArea}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.sectionTitle}>Event Content & Contacts</Text>
+          <View style={styles.card}>
           <Text style={styles.subHeader}>Contact Person</Text>
 
           {contacts.map((c, i) => (
@@ -200,11 +284,10 @@ export default function ContactEventScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Highlights Section */}
-        <View style={styles.card}>
-          <Text style={styles.subHeader}>Highlights & Prize</Text>
-          
-          {highlights.map((h, i) => (
+          <View style={styles.card}>
+            <Text style={styles.subHeader}>Highlights & Prize</Text>
+
+            {highlights.map((h, i) => (
             <View key={i} style={styles.row}>
               <TextInput
                 style={[styles.input, { flex: 1 }]}
@@ -227,16 +310,20 @@ export default function ContactEventScreen() {
             <Text style={styles.addButtonText}>+ Add Highlight</Text>
           </TouchableOpacity>
 
-          <View style={{ marginTop: 15 }}>
-            <Text style={styles.bullet}>• Open to 2nd & 3rd year B-Tech students</Text>
-            <Text style={styles.bullet}>• Participate all CSE Stream branches</Text>
-            <Text style={styles.bullet}>• Teams of 2–4 members</Text>
-            <Text style={styles.bullet}>• Mentorship from industry experts</Text>
-          </View>
+            {highlights.some((h) => h.text.trim().length > 0) && (
+              <View style={styles.highlightPreview}>
+                {highlights
+                  .filter((h) => h.text.trim().length > 0)
+                  .map((h, idx) => (
+                    <Text key={`${idx}-${h.text}`} style={styles.bullet}>
+                      {`• ${h.text.trim()}`}
+                    </Text>
+                  ))}
+              </View>
+            )}
         </View>
 
-        {/* Schedule Section */}
-        <View style={styles.card}>
+          <View style={styles.card}>
           <Text style={styles.subHeader}>Schedule & Agenda</Text>
 
           {schedule.map((item, i) => (
@@ -269,11 +356,6 @@ export default function ContactEventScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Buttons */}
-        <View style={styles.bottomButtons}>
-          <TouchableOpacity style={styles.draftButton} disabled={loading}>
-            <Text style={styles.draftText}>Save as Draft</Text>
-          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.submitButton, loading && styles.submitButtonDisabled]}
             onPress={saveContact}
@@ -285,51 +367,104 @@ export default function ContactEventScreen() {
               <Text style={styles.submitText}>Submit for Approval</Text>
             )}
           </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </View>
+        </ScrollView>
+        <BottomNavBar />
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F6FF" },
-  headerRow: {
-    backgroundColor: "#000",
+  container: {
+    flex: 1,
+    backgroundColor: "#EFEAFE",
+  },
+  topHeader: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 15,
-    gap: 10,
+    paddingHorizontal: 16,
+    backgroundColor: "#000",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { height: 2, width: 0 },
+    paddingBottom: 16,
+    paddingTop:
+      Platform.OS === "android" && typeof StatusBar.currentHeight === "number"
+        ? StatusBar.currentHeight + 16
+        : 24,
   },
-  headerText: { color: "#fff", fontSize: 18, fontWeight: "700" },
-
-  tabs: {
+  backBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#1F1F1F",
+    borderWidth: 1,
+    borderColor: "#2B2B2B",
+  },
+  headerTitle: {
+    color: "#fff",
+    fontSize: 22,
+    fontWeight: "700",
+    marginLeft: 12,
+  },
+  tabsContainer: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    paddingVertical: 10,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: "#EFEAFE",
   },
-  tab: {
-    backgroundColor: "#E8E0FF",
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 20,
+  tabPill: {
+    flex: 1,
+    marginHorizontal: 6,
+    borderRadius: 999,
+    alignItems: "center",
+    paddingVertical: 12,
   },
-  activeTab: { backgroundColor: "#B19CFF" },
-  tabText: { color: "#000", fontWeight: "500" },
-  activeTabText: { color: "#fff", fontWeight: "600" },
+  activeTab: {
+    backgroundColor: "#A98BFF",
+  },
+  activeTabText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+  inactiveTab: {
+    backgroundColor: "#fff",
+  },
+  inactiveTabText: {
+    color: "#1F1741",
+    fontWeight: "700",
+  },
+
+  scrollArea: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 160,
+  },
 
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
-    marginTop: 10,
-    marginLeft: 20,
+    marginBottom: 14,
+    color: "#2E2059",
   },
 
   card: {
     backgroundColor: "#fff",
-    margin: 20,
-    padding: 15,
-    borderRadius: 15,
-    elevation: 3,
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { height: 4, width: 0 },
+    elevation: 2,
   },
   subHeader: { fontSize: 16, fontWeight: "600", marginBottom: 10 },
   inputGroup: { marginBottom: 10 },
@@ -342,10 +477,10 @@ const styles = StyleSheet.create({
 
   addButton: {
     backgroundColor: "#7B61FF",
-    padding: 10,
-    borderRadius: 8,
+    padding: 12,
+    borderRadius: 10,
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 8,
   },
   addButtonText: { color: "#fff", fontWeight: "600" },
 
@@ -396,25 +531,19 @@ const styles = StyleSheet.create({
   },
   scheduleTime: { fontWeight: "700", color: "#000" },
   scheduleTask: { color: "#333" },
+  highlightPreview: {
+    marginTop: 16,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+  },
 
-  bottomButtons: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 30,
-    marginHorizontal: 10,
-  },
-  draftButton: {
-    backgroundColor: "#E8E0FF",
-    paddingVertical: 12,
-    paddingHorizontal: 25,
-    borderRadius: 10,
-  },
-  draftText: { color: "#000", fontWeight: "600" },
   submitButton: {
     backgroundColor: "#7B61FF",
-    paddingVertical: 12,
-    paddingHorizontal: 25,
-    borderRadius: 10,
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: "center",
+    marginTop: 8,
   },
   submitButtonDisabled: {
     opacity: 0.6,

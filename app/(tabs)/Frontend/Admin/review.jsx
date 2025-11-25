@@ -1,4 +1,5 @@
 import { router, useRouter } from "expo-router";
+import BottomNavBar from '../components/navbar';
 import React, { useEffect, useState } from "react";
 import { View, Text, ScrollView, ImageBackground, StyleSheet, TouchableOpacity, Alert, Dimensions, Modal, TextInput } from "react-native";
 
@@ -119,22 +120,16 @@ export default function Review() {
         {filteredEvents.length > 0 ? (
           filteredEvents.map((item, index) => (
             <View key={index} style={styles.card}>
-              <Text style={styles.eventTitle}>{item.basicInfo?.eventName}</Text>
-
-              {item.basicInfo?.poster ? (
-                <ImageBackground source={{ uri: item.basicInfo.poster }} style={styles.poster} imageStyle={{ borderRadius: 0 }} />
-              ) : null}
-
-              <Text style={styles.sectionHeader}>Basic Info</Text>
-              <Text>Type: {item.basicInfo?.eventType}</Text>
-
-              <Text style={styles.sectionHeader}>Event Details</Text>
-              <Text>Date: {item.eventDetails?.date}</Text>
-              <Text>Venue: {item.eventDetails?.venue}</Text>
-
-              <Text style={styles.sectionHeader}>Contact Info</Text>
-              <Text>Email: {item.contactInfo?.email}</Text>
-              <Text>Phone: {item.contactInfo?.phone}</Text>
+              <View style={styles.headerRow}>
+                {item.basicInfo?.poster ? (
+                  <ImageBackground source={{ uri: item.basicInfo.poster }} style={styles.poster} imageStyle={{ borderRadius: 12 }} />
+                ) : null}
+                <View style={styles.headerText}>
+                  <Text style={styles.eventTitle}>{item.basicInfo?.eventName}</Text>
+                  <Text style={styles.subtitleText}>{[item.basicInfo?.eventType, item.eventDetails?.startDate ? new Date(item.eventDetails.startDate).toLocaleDateString() : null, item.eventDetails?.venue].filter(Boolean).join(' • ')}</Text>
+                  {item.basicInfo?.submittedBy ? <Text style={styles.submittedText}>Submitted by {item.basicInfo.submittedBy}</Text> : null}
+                </View>
+              </View>
 
               {activeTab === "pending" && (
                 <View style={styles.buttonContainer}>
@@ -202,65 +197,177 @@ export default function Review() {
           </View>
         </View>
       </Modal>
-    </View>
+      <BottomNavBar />
+      </View>
   );
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5",marginTop: 40 },
-  tabContainer: { 
-    flexDirection: "row", 
-    backgroundColor: "#fff", 
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    marginTop: 15,
-    marginHorizontal: 10,
-    marginBottom: 10,
-    borderRadius: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#ddd"
+  container: { flex: 1, backgroundColor: "#EFEAFE", paddingTop: 24 },
+
+  // Tabs (same as screenshot)
+  tabContainer: {
+    flexDirection: "row",
+    backgroundColor: "#EFEAFE",
+    padding: 10,
+    marginHorizontal: 12,
+    marginTop: 10,
+    borderRadius: 20,
   },
-  tab: { 
-    flex: 1, 
-    paddingVertical: 8, 
-    paddingHorizontal: 12,
-    borderRadius: 6,
+  tab: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 20,
     alignItems: "center",
-    marginHorizontal: 4,
-    backgroundColor: "#f0f0f0"
+    backgroundColor: "#fff",
   },
-  activeTab: { backgroundColor: "#7B61FF" },
-  tabText: { fontSize: 14, fontWeight: "600", color: "#333" },
+  activeTab: { backgroundColor: "#8359FF" },
+  tabText: { fontSize: 14, fontWeight: "600", color: "#555" },
   activeTabText: { color: "#fff" },
-  scrollContainer: { flex: 1, padding: 12 },
-  card: { marginBottom: 16, padding: 15, backgroundColor: '#fff', borderRadius: 10, elevation: 2 },
-  poster: {
-    width: SCREEN_WIDTH,
-    height: 180,
-    marginLeft: -15,
-    marginRight: -15,
-    marginBottom: 12,
+
+  scrollContainer: { padding: 12, paddingTop: 12 },
+
+  // Card styling exactly like screenshot
+  card: {
+    flexDirection: "column",
+    backgroundColor: "#fff",
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+    elevation: 2,
   },
-  eventTitle: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
-  sectionHeader: { marginTop: 10, fontWeight: 'bold', color: "#333" },
-  buttonContainer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 15, gap: 8 },
-  button: { flex: 1, paddingVertical: 10, borderRadius: 6, alignItems: 'center' },
-  approveBtn: { backgroundColor: '#4CAF50' },
-  rejectBtn: { backgroundColor: '#F44336' },
-  reviewBtn: { backgroundColor: '#2196F3' },
-  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
-  emptyContainer: { alignItems: "center", justifyContent: "center", paddingTop: 60 },
-  emptyText: { fontSize: 16, color: "#999" },
-  // Modal styles
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: '#fff', borderRadius: 12, padding: 20, width: '85%', maxWidth: 400, elevation: 5 },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 8 },
-  modalSubtitle: { fontSize: 14, color: '#666', marginBottom: 15 },
-  modalInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, marginBottom: 15, textAlignVertical: 'top', fontSize: 14, color: '#333' },
-  modalButtonContainer: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
-  modalCancelBtn: { flex: 1, backgroundColor: '#999', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
-  modalSendBtn: { flex: 1, backgroundColor: '#4CAF50', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
-  modalButtonText: { color: '#fff', fontWeight: '700', fontSize: 14 }
+
+  // Poster left side
+  poster: {
+    width: 74,
+    height: 74,
+    borderRadius: 12,
+    marginRight: 12,
+    marginBottom: 8,
+    alignSelf: "center",
+  },
+
+  // Right content
+  eventTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#222",
+  },
+
+  subtitleText: {
+    fontSize: 13,
+    color: "#666",
+    marginTop: 4,
+  },
+
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  headerText: {
+    flex: 1,
+    paddingLeft: 8,
+  },
+
+  submittedText: {
+    fontSize: 12,
+    color: "#777",
+    marginTop: 2,
+  },
+
+  createdByText: {
+    fontSize: 13,
+    color: "#555",
+    marginVertical: 4,
+  },
+
+  // Status badge like screenshot
+  statusBadge: {
+    backgroundColor: "#FFD966",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    alignSelf: "flex-start",
+    marginLeft: "auto",
+  },
+  statusText: {
+    fontSize: 11,
+    color: "#A67C00",
+    fontWeight: "700",
+  },
+
+  // Buttons bottom row
+  buttonContainer: {
+    flexDirection: "row",
+    marginTop: 10,
+    gap: 8,
+  },
+  button: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignItems: "center",
+  },
+  approveBtn: { backgroundColor: "#4CAF50" },
+  rejectBtn: { backgroundColor: "#F44336" },
+  reviewBtn: { backgroundColor: "#E6E6E6" },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+  reviewBtnText: {
+    color: "#000",
+    fontWeight: "700",
+  },
+
+  // Empty text
+  emptyContainer: { alignItems: "center", paddingTop: 50 },
+  emptyText: { fontSize: 16, color: "#888" },
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 12,
+    width: "85%",
+  },
+  modalTitle: { fontSize: 18, fontWeight: "700" },
+  modalSubtitle: { marginVertical: 10, color: "#666" },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    padding: 10,
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  modalButtonContainer: {
+    flexDirection: "row",
+    marginTop: 12,
+    gap: 10,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    backgroundColor: "#999",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  modalSendBtn: {
+    flex: 1,
+    backgroundColor: "#4CAF50",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  modalButtonText: { color: "#fff", fontWeight: "700" },
 });

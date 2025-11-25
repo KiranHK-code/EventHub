@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -10,15 +10,51 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from "react-native";
 
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import BottomNavBar from "../components/navbar";
+import Constants from "expo-constants";
+
+const cleanUrl = (value) => {
+  if (!value) return null;
+  let url = value.trim();
+  if (!/^https?:\/\//.test(url)) {
+    url = `http://${url}`;
+  }
+  return url.replace(/\/$/, "");
+};
+
+const guessExpoHost = () => {
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    Constants.manifest2?.extra?.expoClient?.hostUri ||
+    Constants.manifest?.hostUri;
+
+  if (!hostUri) return null;
+  const host = hostUri.split(":")[0];
+  if (!host) return null;
+  return `http://${host}:5000`;
+};
+
+const getBaseUrl = () => {
+  const envUrl = cleanUrl(process.env.EXPO_PUBLIC_API_BASE_URL);
+  if (envUrl) return envUrl;
+
+  const expoHostUrl = guessExpoHost();
+  if (expoHostUrl) return expoHostUrl;
+
+  if (Platform.OS === "android") return "http://10.0.2.2:5000";
+  if (Platform.OS === "ios") return "http://127.0.0.1:5000";
+  return "http://192.168.93.107:5000";
+};
 
 export default function CreateEventScreen() {
   const router = useRouter();
+  const apiBase = useMemo(() => getBaseUrl(), []);
 
   const [eventName, setEventName] = useState("");
   const [dept, setDept] = useState("");
@@ -26,7 +62,7 @@ export default function CreateEventScreen() {
   const [description, setDescription] = useState("");
   const [imageUri, setImageUri] = useState(null);
 
-  const eventTypes = ["Hackathon", "Workshop", "Cultural", "Seminar"];
+  const eventTypes = ["Hackathon", "Workshop", "Cultural", "Circulars"];
 
   const pickImage = async () => {
     try {
@@ -64,11 +100,16 @@ export default function CreateEventScreen() {
           type,
         });
 
-        const uploadResp = await fetch('http://192.168.93.107:5000/upload-poster', {
+        console.log('Uploading image to', apiBase + '/upload-poster');
+        const uploadResp = await fetch(apiBase + '/upload-poster', {
           method: 'POST',
           body: formData,
           headers: { Accept: 'application/json' },
         });
+
+        if (!uploadResp.ok) {
+          throw new Error(`Upload failed (${uploadResp.status})`);
+        }
 
         const uploadJson = await uploadResp.json();
         if (!uploadJson.success) {
@@ -77,7 +118,8 @@ export default function CreateEventScreen() {
         posterUrl = uploadJson.url;
       }
 
-      const res = await fetch('http://192.168.93.107:5000/addBasicInfo', {
+      console.log('Sending basic info to', apiBase + '/addBasicInfo');
+      const res = await fetch(apiBase + '/addBasicInfo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -91,13 +133,17 @@ export default function CreateEventScreen() {
 
       const data = await res.json();
       if (res.ok && data.success) {
-        router.push('/(tabs)/Frontend/Organizer/register_event');
+        // Pass eventId to register_event screen
+        router.push({
+          pathname: '/(tabs)/Frontend/Organizer/register_event',
+          params: { eventId: data.eventId }
+        });
       } else {
         Alert.alert('Error', data.error || 'Failed to save event');
       }
     } catch (err) {
-      console.error(err);
-      Alert.alert('Network Error', err.message);
+      console.error('Event creation failed', err);
+      Alert.alert('Network Error', `Unable to reach ${apiBase}.\n${err.message}`);
     }
   };
 
@@ -107,29 +153,36 @@ export default function CreateEventScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={styles.container}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
-          {/* HEADER */}
-          <View style={styles.topHeader}>
-            <TouchableOpacity onPress={() => router.back()}>
-              <Icon name="arrow-back" size={26} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Create Event</Text>
-          </View>
+        <View style={styles.topHeader}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Icon name="arrow-back" size={26} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Create Event</Text>
+        </View>
 
-          {/* TOP TABS */}
-          <View style={styles.tabsContainer}>
-            <View style={styles.activeTab}>
-              <Text style={styles.activeTabText}>Basic Info</Text>
-            </View>
-            <View style={styles.inactiveTab}>
-              <Text style={styles.inactiveTabText}>Registrations</Text>
-            </View>
-            <View style={styles.inactiveTab}>
-              <Text style={styles.inactiveTabText}>Contact</Text>
-            </View>
-          </View>
+        <View style={styles.tabsContainer}>
+          <TouchableOpacity style={[styles.tabPill, styles.activeTab]} disabled>
+            <Text style={styles.activeTabText}>Basic Info</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabPill, styles.inactiveTab]}
+            onPress={() => router.push('/(tabs)/Frontend/Organizer/register_event')}
+          >
+            <Text style={styles.inactiveTabText}>Registrations</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabPill, styles.inactiveTab]}
+            onPress={() => router.push('/(tabs)/Frontend/Organizer/contact')}
+          >
+            <Text style={styles.inactiveTabText}>Contact</Text>
+          </TouchableOpacity>
+        </View>
 
-          {/* FORM CARD */}
+        <ScrollView
+          style={styles.scrollArea}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.formCard}>
             <Text style={styles.sectionTitle}>Basic Info</Text>
 
@@ -180,7 +233,11 @@ export default function CreateEventScreen() {
             {/* Poster Upload Box */}
             <View style={styles.posterCard}>
               {imageUri ? (
-                <Image source={{ uri: imageUri }} style={styles.posterImg} />
+                <Image
+                  source={{ uri: imageUri }}
+                  style={styles.posterImg}
+                  resizeMode="cover"
+                />
               ) : (
                 <TouchableOpacity style={styles.uploadBox} onPress={pickImage}>
                   <Icon name="add" size={32} color="#555" />
@@ -207,7 +264,6 @@ export default function CreateEventScreen() {
             <Text style={styles.nextButtonText}>Next: Registration Details</Text>
           </TouchableOpacity>
         </ScrollView>
-
         <BottomNavBar />
       </View>
     </KeyboardAvoidingView>
@@ -224,43 +280,77 @@ const styles = StyleSheet.create({
   topHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: 50,
-    paddingBottom: 20,
     paddingHorizontal: 16,
     backgroundColor: "#000",
+    paddingBottom: 16,
+    paddingTop:
+      Platform.OS === "android" && typeof StatusBar.currentHeight === "number"
+        ? StatusBar.currentHeight + 16
+        : 24,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { height: 2, width: 0 },
+  },
+  backBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#1F1F1F",
+    borderWidth: 1,
+    borderColor: "#2B2B2B",
   },
   headerTitle: {
     color: "#fff",
     fontSize: 22,
     fontWeight: "700",
-    marginLeft: 10,
+    marginLeft: 12,
   },
 
   /* Tabs */
   tabsContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
-    padding: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     backgroundColor: "#EFEAFE",
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    shadowOffset: { height: 1, width: 0 },
+  },
+  tabPill: {
+    flex: 1,
+    marginHorizontal: 4,
+    borderRadius: 22,
+    alignItems: "center",
+    paddingVertical: 10,
   },
   activeTab: {
     backgroundColor: "#C9B8FF",
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
   },
   activeTabText: {
     color: "#000",
-    fontWeight: "600",
+    fontWeight: "700",
   },
   inactiveTab: {
     backgroundColor: "#fff",
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
   },
   inactiveTabText: {
     color: "#666",
+    fontWeight: "600",
+  },
+
+  scrollArea: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 160,
+    paddingTop: 12,
   },
 
   /* Form Card */
@@ -319,11 +409,12 @@ const styles = StyleSheet.create({
   },
   posterImg: {
     width: "100%",
-    height: 180,
+    aspectRatio: 16 / 9,
     borderRadius: 10,
+    backgroundColor: "#ddd",
   },
   uploadBox: {
-    height: 180,
+    minHeight: 200,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
