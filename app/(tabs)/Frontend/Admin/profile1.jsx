@@ -76,12 +76,12 @@ export default function ProfileScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const [profile, setProfile] = useState({
-    name: 'Dr. Rajesh Singh',
+    name: '',
     role: 'Admin',
-    staffId: 'MITPRINCIPLE**',
-    institution: 'MITM',
-    email: 'Rajeshsingh@gmail.com',
-    phone: '+91 99999 9****',
+    staffId: '',
+    institution: '',
+    email: '',
+    phone: '',
     imageUri: null,
   });
 
