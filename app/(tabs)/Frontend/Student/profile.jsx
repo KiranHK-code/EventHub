@@ -24,12 +24,12 @@ const { width } = Dimensions.get("window");
 
 /* ------------------ Initial Profile Data & Events ------------------ */
 const INITIAL_PROFILE_DATA = {
-  name: "Abhijeet Sharma",
-  roll: "4MH23CB001",
-  dept: "CS&BS",
-  year: "3rd",
-  email: "abhijeetsharma@gmail.com",
-  phone: "+91 99999 99999",
+  name: "",
+  roll: "",
+  dept: "",
+  year: "",
+  email: "",
+  phone: "",
 };
 const INITIAL_IMAGE_URI = null; 
 

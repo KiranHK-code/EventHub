@@ -31,12 +31,12 @@ const SAMPLE_EVENTS = [
 
 
 const DEFAULT_PROFILE = {
-  name: "Dr. Priya Singh",
-  role: "Event Organizer",
-  staffId: "MITHODCSBS**",
-  department: "CS&BS",
-  email: "Priyasingh@gmail.com",
-  phone: "+91 99999 9****",
+  name: "",
+  role: "",
+  staffId: "",
+  department:"",
+  email: "",
+  phone: "",
 };
 
 export default function OrgProfile() {
