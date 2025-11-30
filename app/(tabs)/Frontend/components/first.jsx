@@ -17,7 +17,7 @@ export default function RoleScreen({ navigation }) {
       </TouchableOpacity>
 
       {/* ORGANIZER BUTTON */}
-      <TouchableOpacity style={styles.btn} onPress={()=>{router.push("/(tabs)/Frontend/Organizer/create_event")}}>
+      <TouchableOpacity style={styles.btn} onPress={()=>{router.push("/(tabs)/Frontend/components/org_signup")}}>
         <Icon name="user" size={22} color="#000" style={styles.icon} />
         <Text style={styles.btnText}>ORGANIZER</Text>
       </TouchableOpacity>

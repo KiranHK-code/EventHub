@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  Keyboard,
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
@@ -57,6 +58,7 @@ export default function ContactEventScreen() {
   const eventId = params?.eventId;
   const registrationDraft = params?.registrationDraft ? JSON.parse(params.registrationDraft) : null;
   const apiBase = useMemo(() => getBaseUrl(), []);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const [contacts, setContacts] = useState([
     { name: "", phone: "", email: "" },
   ]);
@@ -69,6 +71,15 @@ export default function ContactEventScreen() {
 
   
 
+  useEffect(() => {
+    const showSub = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   const addContact = () =>
     setContacts([...contacts, { name: "", phone: "", email: "" }]);
   
@@ -80,7 +91,14 @@ export default function ContactEventScreen() {
 
   const updateContact = (index, field, value) => {
     const updated = [...contacts];
-    updated[index][field] = value;
+    if (field === "phone") {
+      const digitsOnly = value.replace(/[^0-9]/g, "").slice(0, 10);
+      updated[index][field] = digitsOnly;
+    } else if (field === "email") {
+      updated[index][field] = value.replace(/\s+/g, "").toLowerCase();
+    } else {
+      updated[index][field] = value;
+    }
     setContacts(updated);
   };
 
@@ -110,9 +128,23 @@ export default function ContactEventScreen() {
 
   const validateInputs = () => {
     // Validate at least one contact with all fields
-    const validContact = contacts.some(c => c.name && c.phone && c.email);
+    const validContact = contacts.some((c) => c.name && c.phone && c.email);
     if (!validContact) {
       Alert.alert("Validation Error", "Please add at least one complete contact");
+      return false;
+    }
+
+    const invalidPhone = contacts.some((c) => c.phone && c.phone.length !== 10);
+    if (invalidPhone) {
+      Alert.alert("Validation Error", "Phone number must be exactly 10 digits");
+      return false;
+    }
+
+    const invalidEmail = contacts.some(
+      (c) => c.email && !c.email.endsWith("@gmail.com")
+    );
+    if (invalidEmail) {
+      Alert.alert("Validation Error", "Email must end with @gmail.com");
       return false;
     }
 
@@ -259,6 +291,7 @@ export default function ContactEventScreen() {
                 keyboardType="phone-pad"
                 value={c.phone}
                 onChangeText={(val) => updateContact(i, "phone", val)}
+                maxLength={10}
               />
               <TextInput
                 style={styles.input}
@@ -368,7 +401,7 @@ export default function ContactEventScreen() {
             )}
           </TouchableOpacity>
         </ScrollView>
-        <BottomNavBar />
+        {!isKeyboardVisible && <BottomNavBar />}
       </View>
     </KeyboardAvoidingView>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  Keyboard,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Icon from "react-native-vector-icons/FontAwesome";
@@ -22,6 +23,16 @@ export default function RegistrationDetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const eventId = params?.eventId;
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
   // Date & Time states
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
@@ -289,7 +300,7 @@ export default function RegistrationDetailsScreen() {
           </TouchableOpacity>
         </ScrollView>
 
-        <Navbar />
+        {!isKeyboardVisible && <Navbar />}
       </View>
     </KeyboardAvoidingView>
   );

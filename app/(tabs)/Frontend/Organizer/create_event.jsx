@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  Keyboard,
 } from "react-native";
 
 import * as ImagePicker from "expo-image-picker";
@@ -61,6 +62,16 @@ export default function CreateEventScreen() {
   const [eventType, setEventType] = useState("Hackathon");
   const [description, setDescription] = useState("");
   const [imageUri, setImageUri] = useState(null);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const eventTypes = ["Hackathon", "Workshop", "Cultural", "Circulars"];
 
@@ -264,7 +275,7 @@ export default function CreateEventScreen() {
             <Text style={styles.nextButtonText}>Next: Registration Details</Text>
           </TouchableOpacity>
         </ScrollView>
-        <BottomNavBar />
+        {!isKeyboardVisible && <BottomNavBar />}
       </View>
     </KeyboardAvoidingView>
   );

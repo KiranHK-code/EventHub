@@ -106,6 +106,9 @@ const ContactInfo = mongoose.model("ContactInfo", ContactSchema);
 const uploadRoutes = require('./routes/upload');
 app.use('/', uploadRoutes);
 
+const organizerRoutes = require('./routes/organizerRoutes');
+app.use('/api/organizers', organizerRoutes);
+
 
 // --------- CREATE BASIC INFO ----------
 app.post("/addBasicInfo", async (req, res) => {
