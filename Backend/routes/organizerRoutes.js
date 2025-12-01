@@ -45,11 +45,14 @@ router.post('/login', async (req, res) => {
         expiresIn: '1h',
       });
   
-      res.status(200).json({ token });
+      res.status(200).json({
+        success: true,
+        token: token,
+        organizer: organizer // Return the full organizer object
+      });
     } catch (error) {
       res.status(500).json({ message: 'Server error', error });
     }
   });
 
 module.exports = router;
-

@@ -27,6 +27,7 @@ const BasicInfoSchema = new mongoose.Schema(
     eventType: { type: String, default: "Hackathon" },
     description: { type: String, required: true },
     // poster now stores a public URL (e.g. '/uploads/...') instead of base64
+    organizerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organizer', required: true },
     poster: { type: String },
     status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   },
@@ -94,9 +95,21 @@ const ContactSchema = new mongoose.Schema({
 const ContactInfo = mongoose.model("ContactInfo", ContactSchema);
 
 // ---------------------------------------------------------
-// 5️⃣ NOTIFICATION SCHEMA
+// 4️⃣ NOTIFICATION SCHEMA
 // ---------------------------------------------------------
-// Notifications have been removed from this backend build.
+const NotificationSchema = new mongoose.Schema({
+  organizerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organizer', required: true },
+  eventId: { type: mongoose.Schema.Types.ObjectId, ref: 'BasicInfo', required: true },
+  title: { type: String, required: true },
+  message: { type: String, required: true },
+  // 'type' will be used by the frontend to show the correct icon (e.g., 'Approved', 'Rejected')
+  type: { type: String, enum: ['Approved', 'Rejected', 'Info'], required: true },
+  isRead: { type: Boolean, default: false },
+}, { timestamps: true });
+
+const Notification = mongoose.model("Notification", NotificationSchema);
+
+
 
 // ---------------------------------------------------------
 // 6️⃣ ROUTES
@@ -109,16 +122,47 @@ app.use('/', uploadRoutes);
 const organizerRoutes = require('./routes/organizerRoutes');
 app.use('/api/organizers', organizerRoutes);
 
+const studentAuthRoutes = require('./routes/studentAuthRoutes');
+app.use('/api/students', studentAuthRoutes);
+
+const adminAuthRoutes = require('./routes/adminAuthRoutes');
+app.use('/api/admins', adminAuthRoutes);
+
+// --------- UPDATE ORGANIZER PROFILE ----------
+app.put("/api/organizers/profile/:organizerId", async (req, res) => {
+  try {
+    const { organizerId } = req.params;
+    const updateData = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(organizerId)) {
+      return res.status(400).json({ success: false, error: "Invalid Organizer ID" });
+    }
+
+    // Find the organizer and update their data
+    const updatedOrganizer = await mongoose.model('Organizer').findByIdAndUpdate(organizerId, updateData, { new: true });
+
+    if (!updatedOrganizer) {
+      return res.status(404).json({ success: false, error: "Organizer not found" });
+    }
+
+    res.json({ success: true, message: "Profile updated successfully", organizer: updatedOrganizer });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 
 // --------- CREATE BASIC INFO ----------
 app.post("/addBasicInfo", async (req, res) => {
   try {
     // accept either `image` or `poster` fields from the client
+    const { organizerId, ...rest } = req.body;
+    if (!organizerId) {
+      return res.status(400).json({ success: false, error: "Organizer ID is required to create an event." });
+    }
+    // The payload from the client now directly matches the schema
     const payload = { ...req.body };
-    if (req.body.image && !req.body.poster) payload.poster = req.body.image;
-
-    console.log("📸 /addBasicInfo payload:", payload);
-
+    
     const info = new BasicInfo(payload);
     const saved = await info.save();
 
@@ -228,6 +272,77 @@ app.get("/review", async (req, res) => {
   }
 });
 
+// --------- GET ALL ORGANIZER EVENTS ----------
+app.get("/organizer-events", async (req, res) => {
+  const { organizerId } = req.query;
+
+  if (!organizerId) {
+    return res.status(400).json({ success: false, error: "Organizer ID is required." });
+  }
+
+  try {
+    // Find events that match the provided organizerId
+    const basicInfos = await BasicInfo.find({ organizerId: organizerId }).sort({ createdAt: -1 });
+
+    const events = await Promise.all(
+      basicInfos.map(async (basic) => {
+        // Construct the full URL for the poster
+        const posterUrl = basic.poster ? `${req.protocol}://${req.get('host')}${basic.poster.startsWith('/') ? '' : '/'}${basic.poster}` : null;
+
+        const registration = await Registration.findOne({ eventId: basic._id });
+        return {
+          _id: basic._id,
+          // Details from BasicInfo
+          title: basic.eventName,
+          dept: basic.dept,
+          image: posterUrl,
+          status: basic.status.charAt(0).toUpperCase() + basic.status.slice(1), // Capitalize status (e.g., 'pending' -> 'Pending')
+          reason: basic.rejectionReason || null, // Assuming you might add a rejection reason field
+          // Details from Registration
+          startDate: registration ? registration.startDate : null,
+          startTime: registration ? registration.startTime : null,
+          venue: registration ? registration.venue : 'Not set',
+        };
+      })
+    );
+
+    res.status(200).json({
+      success: true,
+      events: events,
+    });
+  } catch (err) {
+    console.error("❌ /organizer-events error:", err.message);
+    res.status(500).json({ success: false, error: "Internal Server Error" });
+  }
+});
+
+// --------- GET ORGANIZER NOTIFICATIONS ----------
+app.get("/organizer-notifications", async (req, res) => {
+  const { organizerId } = req.query;
+
+  if (!organizerId) {
+    return res.status(400).json({ success: false, error: "Organizer ID is required." });
+  }
+
+  try {
+    const notifications = await Notification.find({ organizerId: organizerId })
+      .sort({ createdAt: -1 }) // Show newest first
+      .limit(50); // Limit to the last 50 notifications
+
+    res.status(200).json({
+      success: true,
+      notifications: notifications,
+    });
+  } catch (err) {
+    console.error("❌ /organizer-notifications error:", err.message);
+    res.status(500).json({
+      success: false,
+      error: "Internal Server Error"
+    });
+  }
+});
+
+
 // --------- UPDATE EVENT STATUS (APPROVE/REJECT) ----------
 app.put("/review/:eventId", async (req, res) => {
   try {
@@ -261,19 +376,26 @@ app.put("/review/:eventId", async (req, res) => {
       });
     }
 
+    // --- Create a notification for the organizer ---
+    if (updated.organizerId) {
+      const notificationType = status.charAt(0).toUpperCase() + status.slice(1); // 'approved' -> 'Approved'
+      const notification = new Notification({
+        organizerId: updated.organizerId,
+        eventId: updated._id,
+        type: notificationType,
+        title: `Event ${notificationType}`,
+        message: `Your event '${updated.eventName}' has been ${status}.`,
+      });
+      await notification.save();
+      console.log(`✅ Notification created for event ${status}.`);
+    }
+
     res.json({ success: true, message: `Event ${status}!`, event: updated });
   } catch (err) {
     console.error("❌ UPDATE STATUS ERROR:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
-// --------- CREATE NOTIFICATION (when event is submitted) ----------
-// Notification endpoints removed.
-
-// Device token registration endpoints removed.
-
-// Notification listing/marking endpoints removed.
 
 // ---------------------------------------------------------
 app.listen(5000, () => console.log("Server running on port 5000"));
