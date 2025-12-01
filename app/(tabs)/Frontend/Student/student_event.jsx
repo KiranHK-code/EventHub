@@ -13,6 +13,33 @@ import {
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useRouter } from "expo-router";
 import BottomNavBar from "../components/navbar";
+import Constants from "expo-constants";
+
+// --- Helper functions to get the API URL ---
+const cleanUrl = (value) => {
+  if (!value) return null;
+  let url = value.trim();
+  if (!/^https?:\/\//.test(url)) {
+    url = `http://${url}`;
+  }
+  return url.replace(/\/$/, "");
+};
+
+const getBaseUrl = () => {
+  // 1. Try to get the base URL from environment variables.
+  const envUrl = cleanUrl(process.env.EXPO_PUBLIC_API_BASE_URL);
+  if (envUrl) return envUrl;
+
+  // 2. Fallback to using the host URI from Expo's config.
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const host = hostUri.split(":")[0];
+    return `http://${host}:5000`;
+  }
+
+  // 3. Final fallback for older setups or edge cases.
+  return "http://localhost:5000";
+};
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -28,6 +55,7 @@ export default function StudentEvent() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const router = useRouter();
+  const apiBase = useMemo(() => getBaseUrl(), []);
 
   useEffect(() => {
     fetchEvents();
@@ -35,7 +63,7 @@ export default function StudentEvent() {
 
   const fetchEvents = async () => {
     try {
-      const res = await fetch("http://192.168.93.107:5000/review");
+      const res = await fetch(`${apiBase}/review`);
       const json = await res.json();
       const approved = (json || []).filter(
         (it) => it.basicInfo && it.basicInfo.status === "approved" && it.basicInfo.poster
@@ -90,10 +118,10 @@ export default function StudentEvent() {
     </View>
   );
 
-  const handleRegisterPress = (eventId) => {
+  const handleRegisterPress = (eventItem) => {
     router.push({
-      pathname: "/(tabs)/Frontend/Student/student_home",
-      params: { eventId },
+      pathname: "/(tabs)/Frontend/Student/EventDetailsScreen", // Navigate to the details screen
+      params: { eventId: eventItem.basicInfo._id }, // Pass only the event ID
     });
   };
 
@@ -115,7 +143,7 @@ export default function StudentEvent() {
           <Text style={styles.cardMeta}>Venue: {item.eventDetails.venue}</Text>
         ) : null}
       </View>
-      <TouchableOpacity style={styles.registerBtn} onPress={() => handleRegisterPress(item.basicInfo?._id)}>
+      <TouchableOpacity style={styles.registerBtn} onPress={() => handleRegisterPress(item)}>
         <Text style={styles.registerText}>Register Now</Text>
       </TouchableOpacity>
     </View>

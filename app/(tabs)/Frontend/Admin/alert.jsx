@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Dimensions, ActivityIndicator, TouchableOpacity, Alert, FlatList } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import BottomNavBar from '../components/navbar';
 
 const API_BASE_URL = "http://192.168.93.107:5000";
 
@@ -39,13 +40,12 @@ export default function NotificationsScreen() {
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/notifications`);
+      const res = await fetch(`${API_BASE_URL}/admin-notifications`);
       if (!res.ok) {
         console.warn('Notifications endpoint returned', res.status);
-        // Backend notifications were removed; fall back to empty list
         setNotifications([]);
         setUnreadCount(0);
-        setLoading(false);
+        if (loading) setLoading(false);
         return;
       }
 
@@ -56,8 +56,8 @@ export default function NotificationsScreen() {
       } catch (e) {
         console.warn('Failed to parse notifications JSON:', e);
         setNotifications([]);
-        setUnreadCount(0);
-        setLoading(false);
+        setUnreadCount(0);        
+        if (loading) setLoading(false);
         return;
       }
 
@@ -65,19 +65,19 @@ export default function NotificationsScreen() {
       if (result) {
         const list = Array.isArray(result.notifications) ? result.notifications : (Array.isArray(result) ? result : []);
         setNotifications(list);
-        const unread = list.filter(n => !n.read).length;
+        const unread = list.filter(n => !n.isRead).length;
         setUnreadCount(unread);
       }
-      setLoading(false);
+      if (loading) setLoading(false);
     } catch (err) {
       console.error("❌ fetchNotifications error:", err);
-      setLoading(false);
+      if (loading) setLoading(false);
     }
   };
 
   const markAsRead = async (notificationId) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/notification/${notificationId}`, {
+      const res = await fetch(`${API_BASE_URL}/notifications/${notificationId}/read`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" }
       });
@@ -101,9 +101,9 @@ export default function NotificationsScreen() {
   const handleNotificationPress = (notification) => {
     // Mark as read and show alert
     markAsRead(notification._id);
-    Alert.alert(
-      notification.eventName,
-      notification.message,
+    Alert.alert(      
+      notification.title,
+      notification.message,      
       [{ text: "OK", onPress: () => {} }]
     );
   };
@@ -118,21 +118,21 @@ export default function NotificationsScreen() {
 
   const renderNotificationItem = ({ item }) => (
     <TouchableOpacity
-      style={[styles.notificationCard, !item.read && styles.unreadNotification]}
+      style={[styles.notificationCard, !item.isRead && styles.unreadNotification]}
       onPress={() => handleNotificationPress(item)}
     >
       <View style={styles.notificationContent}>
         <View style={styles.notificationHeader}>
-          <Text style={styles.eventTitle}>{item.eventName}</Text>
-          {!item.read && <View style={styles.unreadBadge} />}
+          <Text style={styles.eventTitle}>{item.title}</Text>
+          {!item.isRead && <View style={styles.unreadBadge} />}
         </View>
-        <Text style={styles.message}>{item.message || `New event "${item.eventName}" posted`}</Text>
+        <Text style={styles.message}>{item.message}</Text>
         <Text style={styles.timestamp}>{timeAgo(item.createdAt)}</Text>
       </View>
       <Icon
-        name={item.read ? "circle-o" : "circle"}
+        name={item.isRead ? "check-circle" : "info-circle"}
         size={16}
-        color={item.read ? "#ccc" : "#7B61FF"}
+        color={item.isRead ? "#ccc" : "#7B61FF"}
         style={styles.icon}
       />
     </TouchableOpacity>
@@ -165,6 +165,7 @@ export default function NotificationsScreen() {
           <Text style={styles.emptyText}>No notifications yet</Text>
         </View>
       )}
+      <BottomNavBar />
     </View>
   );
 }
@@ -172,43 +173,65 @@ export default function NotificationsScreen() {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#f8f9fa' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#7B61FF',
-    paddingVertical: 16,
+    backgroundColor: '#0a0a0aff',
+    paddingTop: 40, // Added for status bar spacing
+    paddingBottom: 20,
     paddingHorizontal: 16,
     justifyContent: 'space-between',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
   },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff' },
+  headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff',marginTop: 4 },
   badge: {
     backgroundColor: '#FF6B6B',
-    borderRadius: 12,
+    borderRadius: 10,
     paddingVertical: 4,
     paddingHorizontal: 8,
+    minWidth: 20,
+    alignItems: 'center',
   },
   badgeText: { color: '#fff', fontWeight: '700', fontSize: 12 },
-  listContent: { paddingHorizontal: 12, paddingVertical: 12 },
+  listContent: { paddingHorizontal: 16, paddingVertical: 16 },
   notificationCard: {
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 10,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    elevation: 2,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
   },
-  unreadNotification: { backgroundColor: '#f0f0ff', borderLeftWidth: 4, borderLeftColor: '#7B61FF' },
+  unreadNotification: { backgroundColor: '#f7f5ff', borderLeftWidth: 4, borderLeftColor: '#6A4DFF' },
   notificationContent: { flex: 1, marginRight: 10 },
   notificationHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  eventTitle: { fontSize: 16, fontWeight: '700', color: '#333', flex: 1 },
-  unreadBadge: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#7B61FF' },
-  message: { fontSize: 14, color: '#666', marginBottom: 6 },
+  eventTitle: { fontSize: 16, fontWeight: '700', color: '#2c2c2c', flex: 1 },
+  unreadBadge: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#6A4DFF', marginLeft: 8 },
+  message: { fontSize: 14, color: '#555', marginBottom: 8, lineHeight: 20 },
   timestamp: { fontSize: 12, color: '#999' },
   icon: { marginLeft: 10 },
-  emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { fontSize: 16, color: '#999', marginTop: 16 },
+  emptyContainer: { 
+    flex: 1, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    paddingBottom: 50, // Offset from center
+  },
+  emptyText: { 
+    fontSize: 16, 
+    color: '#aaa', 
+    marginTop: 20,
+    fontWeight: '600',
+  },
 });

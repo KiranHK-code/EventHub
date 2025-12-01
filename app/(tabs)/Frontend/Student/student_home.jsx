@@ -13,9 +13,37 @@ import {
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useRouter } from "expo-router";
 import BottomNavBar from "../components/navbar";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const REGISTERED_KEY = "student_registered_events";
+
+// --- Helper functions to get the API URL ---
+const cleanUrl = (value) => {
+  if (!value) return null;
+  let url = value.trim();
+  if (!/^https?:\/\//.test(url)) {
+    url = `http://${url}`;
+  }
+  return url.replace(/\/$/, "");
+};
+
+const getBaseUrl = () => {
+  // 1. Try to get the base URL from environment variables.
+  const envUrl = cleanUrl(process.env.EXPO_PUBLIC_API_BASE_URL);
+  if (envUrl) return envUrl;
+
+  // 2. Fallback to using the host URI from Expo's config.
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const host = hostUri.split(":")[0];
+    return `http://${host}:5000`;
+  }
+
+  // 3. Final fallback for older setups or edge cases.
+  return "http://localhost:5000";
+};
 
 export default function StudentHome() {
   const [approvedEvents, setApprovedEvents] = useState([]);
@@ -23,6 +51,7 @@ export default function StudentHome() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  const apiBase = useMemo(() => getBaseUrl(), []);
   useEffect(() => {
     fetchApproved();
     loadRegistered();
@@ -66,7 +95,7 @@ export default function StudentHome() {
 
   const fetchApproved = async () => {
     try {
-      const res = await fetch("http://192.168.93.107:5000/review");
+      const res = await fetch(`${apiBase}/review`);
       const json = await res.json();
 
       const approved = (json || []).filter(
@@ -142,20 +171,15 @@ export default function StudentHome() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[
-            styles.posterAction,
-            registered ? styles.posterActionActive : null,
-          ]}
-          onPress={() => handleToggleRegistration(eventId)}
+          style={styles.posterAction}
+          onPress={() =>
+            router.push({
+              pathname: "/(tabs)/Frontend/Student/student_event",
+              params: { eventId },
+            })
+          }
         >
-          <Text
-            style={[
-              styles.posterActionText,
-              registered ? styles.posterActionTextActive : null,
-            ]}
-          >
-            {registered ? "Registered" : "Register"}
-          </Text>
+          <Text style={styles.posterActionText}>View</Text>
         </TouchableOpacity>
       </View>
     );

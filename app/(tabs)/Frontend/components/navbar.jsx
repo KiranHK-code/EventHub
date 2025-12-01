@@ -18,8 +18,8 @@ export default function BottomNavBar() {
     student: [
       { name: "Home", icon: "home", route: "/(tabs)/Frontend/Student/student_home" },
       { name: "Events", icon: "event", route: "/(tabs)/Frontend/Student/student_event" },
-      { name: "Alerts", icon: "notifications", route: "alerts" },
-      { name: "Register", icon: "app-registration", route: "register" },
+      { name: "Alerts", icon: "notifications", route: "/(tabs)/Frontend/Student/alert" },
+      { name: "Register", icon: "app-registration", route: "/(tabs)/Frontend/Student/register" },
       { name: "Profile", icon: "person", route: "/(tabs)/Frontend/Student/profile" },
     ],
     admin: [

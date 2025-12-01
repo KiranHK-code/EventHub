@@ -20,57 +20,6 @@ import {
 } from 'react-native';
 import BottomNavBar from "../components/navbar";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
-// router must be called inside the component (hooks cannot be called at module scope)
-const approvedEvents = [
-  {
-    id: '1',
-    title: 'Code Valut',
-    dept: 'Department of CS&BS',
-    venue: 'MIT Mysore',
-    date: 'Sept 19, 2025',
-    time: '11:00 AM',
-  },
-  {
-    id: '2',
-    title: 'Yuvan',
-    dept: 'Department of CV',
-    venue: 'MIT Mysore',
-    date: 'Dec 08, 2025',
-    time: '09:00 AM',
-  },
-  {
-    id: '3',
-    title: 'Hack Fusion',
-    dept: 'Department of CS&BS',
-    venue: 'Seminar Hall',
-    date: 'Nov 05, 2025',
-    time: '10:00 AM',
-  },
-  {
-    id: '4',
-    title: 'Purple Party',
-    dept: 'Department of CV',
-    venue: 'Auditorium',
-    date: 'Oct 09, 2025',
-    time: '06:00 PM',
-  },
-  {
-    id: '5',
-    title: 'Startup Summit',
-    dept: 'Department of MBA',
-    venue: 'Innovation Center',
-    date: 'Jan 12, 2026',
-    time: '09:30 AM',
-  },
-  {
-    id: '6',
-    title: 'Design Sprint',
-    dept: 'Department of Design',
-    venue: 'Studio Block',
-    date: 'Aug 13, 2026',
-    time: '02:00 PM',
-  },
-];
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -84,6 +33,7 @@ export default function ProfileScreen() {
     phone: '',
     imageUri: null,
   });
+  const [approvedEvents, setApprovedEvents] = useState([]);
 
   const STORAGE_KEY = '@adminProfile';
 
@@ -110,8 +60,22 @@ export default function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       loadProfile();
-    }, [loadProfile])
+      fetchApprovedEvents();
+    }, [loadProfile, fetchApprovedEvents])
   );
+
+  const fetchApprovedEvents = useCallback(async () => {
+    try {
+      const res = await fetch("http://192.168.93.107:5000/review");
+      const allEvents = await res.json();
+      if (Array.isArray(allEvents)) {
+        // Filter for events that have the status 'approved'
+        setApprovedEvents(allEvents.filter(event => event.basicInfo?.status === 'approved'));
+      }
+    } catch (err) {
+      console.error("Failed to fetch approved events:", err);
+    }
+  }, []);
 
   // Accept updated profile passed back from the edit screen and persist it
   useEffect(() => {
@@ -255,7 +219,7 @@ export default function ProfileScreen() {
             accessibilityRole="button"
             onPress={() =>
               router.push({
-                pathname: '/(tabs)/Frontend/Admin/Edit_profile',
+                pathname: '/(tabs)/Frontend/Admin/Edit_profile (1)',
                 params: { initialData: JSON.stringify(profile) },
               })
             }
@@ -299,19 +263,25 @@ export default function ProfileScreen() {
         </View>
 
         {/* Approved events list (scrollable within the main scroll) */}
-        {approvedEvents.map((ev) => (
-          <View key={ev.id} style={[styles.eventCard, styles.smallCardShadow]}>
+        {approvedEvents.map((event) => (
+          <View key={event.basicInfo._id} style={[styles.eventCard, styles.smallCardShadow]}>
             <View style={styles.cardRow}>
-              <View style={styles.eventThumb} />
+              {event.basicInfo.poster ? (
+                <Image 
+                  source={{ uri: event.basicInfo.poster }} 
+                  style={styles.eventThumb} 
+                />
+              ) : (
+                <View style={styles.eventThumb} />
+              )}
               <View style={styles.eventBody}>
                 <View>
-                  <Text style={styles.eventTitle}>{ev.title}</Text>
-                  <Text style={styles.eventMeta}>{ev.dept}</Text>
-                  <Text style={styles.eventMeta}>Venue: {ev.venue}</Text>
-                  <Text style={styles.eventMeta}>Date: {ev.date}</Text>
-                  <Text style={styles.eventMeta}>Time: {ev.time}</Text>
+                  <Text style={styles.eventTitle}>{event.basicInfo.eventName}</Text>
+                  <Text style={styles.eventMeta}>{event.basicInfo.dept}</Text>
+                  <Text style={styles.eventMeta}>Venue: {event.eventDetails.venue}</Text>
+                  <Text style={styles.eventMeta}>Date: {event.eventDetails.startDate ? new Date(event.eventDetails.startDate).toLocaleDateString() : 'N/A'}</Text>
+                  <Text style={styles.eventMeta}>Time: {event.eventDetails.startTime || 'N/A'}</Text>
                 </View>
-
                 <TouchableOpacity style={styles.viewButton} accessibilityRole="button">
                   <Text style={styles.viewButtonText}>View Registrations</Text>
                 </TouchableOpacity>

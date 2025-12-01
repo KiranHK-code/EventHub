@@ -23,6 +23,7 @@ export default function RegistrationDetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const eventId = params?.eventId;
+  const eventType = params?.eventType; // Get eventType from params
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
@@ -51,6 +52,7 @@ export default function RegistrationDetailsScreen() {
   const [venue, setVenue] = useState("");
   const [participants, setParticipants] = useState("");
   const [price, setPrice] = useState("");
+  const [googleFormLink, setGoogleFormLink] = useState(""); // State for the form link
 
   const [showRegWindow, setShowRegWindow] = useState(false);
 
@@ -79,6 +81,7 @@ export default function RegistrationDetailsScreen() {
         participants,
         price,
         selectedDept,
+        googleFormLink: (eventType === 'Hackathon' || eventType === 'Workshop') ? googleFormLink : undefined,
       };
 
       router.push({
@@ -227,6 +230,16 @@ export default function RegistrationDetailsScreen() {
               onChangeText={setParticipants}
               keyboardType="numeric"
             />
+            {(eventType === 'Hackathon' || eventType === 'Workshop') && (
+              <TextInput
+                style={styles.input}
+                placeholder="Google Form Link for Registration"
+                value={googleFormLink}
+                onChangeText={setGoogleFormLink}
+                keyboardType="url"
+                autoCapitalize="none"
+              />
+            )}
           </View>
 
           <View style={styles.sectionCard}>
