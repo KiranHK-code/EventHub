@@ -12,7 +12,6 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useRouter } from "expo-router";
-
 import BottomNavBar from "../components/navbar";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");

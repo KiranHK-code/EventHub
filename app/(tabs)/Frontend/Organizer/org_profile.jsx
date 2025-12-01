@@ -1,6 +1,6 @@
 // app/(tabs)/Frontend/Organizer/org_profile.jsx
-import { router, useLocalSearchParams } from "expo-router";
-import React, { useState, useEffect } from "react";
+import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   SafeAreaView,
   View,
@@ -13,28 +13,53 @@ import {
   Image,
   Platform,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import BottomNavBar from "../components/navbar";
 import Icon from "react-native-vector-icons/MaterialIcons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
 
 const { width } = Dimensions.get("window");
 const STORAGE_KEY = "@organizerProfile";
 
-const SAMPLE_EVENTS = [
-  
-  
-  { id: "1", title: "Code Valut", dept: "Department of CS&BS", venue: "MIT Mysore", date: "Sept 19, 2025", time: "11:00 AM",image: "https://picsum.photos/120/120?random=1", registered: true },
-  { id: "2", title: "Yuvan", dept: "Department of CS&BS", venue: "MIT Mysore", date: "Dec 08, 2025", time: "09:00 AM",image: "https://picsum.photos/120/120?random=2", registered: true },
-  { id: "3", title: "Hackathon 2025", dept: "Department of CS&BS", venue: "MIT Mysore", date: "Oct 02, 2025", time: "10:00 AM",image: "https://picsum.photos/120/120?random=",registered: true },
-];
+// --- Helper functions to get the API URL ---
+const cleanUrl = (value) => {
+  if (!value) return null;
+  let url = value.trim();
+  if (!/^https?:\/\//.test(url)) {
+    url = `http://${url}`;
+  }
+  return url.replace(/\/$/, "");
+};
 
+const guessExpoHost = () => {
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    Constants.manifest2?.extra?.expoClient?.hostUri ||
+    Constants.manifest?.hostUri;
 
+  if (!hostUri) return null;
+  const host = hostUri.split(":")[0];
+  if (!host) return null;
+  return `http://${host}:5000`;
+};
+
+const getBaseUrl = () => {
+  const envUrl = cleanUrl(process.env.EXPO_PUBLIC_API_BASE_URL);
+  if (envUrl) return envUrl;
+  const expoHostUrl = guessExpoHost();
+  if (expoHostUrl) return expoHostUrl;
+  return "http://192.168.93.107:5000"; // Fallback
+};
+// --- End of helper functions ---
 
 const DEFAULT_PROFILE = {
+  _id: null,
   name: "",
-  role: "",
+  role: "Organizer", // Default role
   staffId: "",
-  department:"",
+  department: "",
   email: "",
   phone: "",
 };
@@ -43,30 +68,52 @@ export default function OrgProfile() {
   const params = useLocalSearchParams();
   const [profile, setProfile] = useState(DEFAULT_PROFILE);
   const [imageUri, setImageUri] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const apiBase = useMemo(() => getBaseUrl(), []);
 
-  // Load persisted profile if available
-  useEffect(() => {
-    (async () => {
-      try {
-        let m = null;
-        try {
-          // runtime require so not mandatory at build time
-          // eslint-disable-next-line global-require
-          m = require("@react-native-async-storage/async-storage");
-        } catch (e) {
-          m = null;
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const saved = await AsyncStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // The name from signup is 'organizerName', but other places use 'name'. Let's unify it.
+        const userProfile = {
+          ...DEFAULT_PROFILE,
+          ...parsed,
+          name: parsed.name || parsed.organizerName,
+        };
+        setProfile(userProfile);
+        if (parsed.imageUri) setImageUri(parsed.imageUri);
+
+        // Fetch events for this organizer
+        if (userProfile._id) {
+          const response = await fetch(`${apiBase}/organizer-events?organizerId=${userProfile._id}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+              setEvents(data.events || []);
+            }
+          } else {
+            console.error("Failed to fetch events");
+            setEvents([]);
+          }
         }
-        const AsyncStorage = m?.default ?? m;
-        if (!AsyncStorage) return;
-        const saved = await AsyncStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          setProfile(prev => ({ ...prev, ...parsed }));
-          if (parsed.imageUri) setImageUri(parsed.imageUri);
-        }
-      } catch (_) {}
-    })();
-  }, []);
+      }
+    } catch (error) {
+      console.error("Failed to load profile or events:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [apiBase]);
+
+  // Load data when the screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   // Apply updates when returning from edit screen
   useEffect(() => {
@@ -132,16 +179,25 @@ export default function OrgProfile() {
     const updated = { ...profile, imageUri: uri };
     setProfile(updated);
     try {
-      let m = null;
-      try {
-        // eslint-disable-next-line global-require
-        m = require("@react-native-async-storage/async-storage");
-      } catch (e) {
-        m = null;
+      // 1. Save to local storage for immediate UI update
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+      // 2. Send the update to the server to persist it
+      if (profile._id) {
+        const response = await fetch(`${apiBase}/api/organizers/profile/${profile._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageUri: uri }), // Send only the changed field
+        });
+        const data = await response.json();
+        if (!data.success) {
+          console.error("Failed to save profile to server:", data.error);
+          // Optional: Alert the user that the change couldn't be saved permanently
+        }
       }
-      const AsyncStorage = m?.default ?? m;
-      if (AsyncStorage) await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (_) {}
+    } catch (error) {
+      console.error("Error saving profile:", error);
+    }
   };
 
   const goEdit = () => {
@@ -152,20 +208,46 @@ export default function OrgProfile() {
     });
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      "Confirm Logout",
+      "Are you sure you want to log out?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Logout",
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem(STORAGE_KEY);
+              // Navigate to the login screen after logout.
+              router.replace('/(tabs)/Frontend/components/org_login'); 
+            } catch (error) {
+              Alert.alert("Error", "Could not log out. Please try again.");
+            }
+          },
+          style: "destructive",
+        },
+      ]
+    );
+  };
+
   const renderEvent = ({ item }) => (
-    <View style={styles.eventCard} key={item.id}>
+    <View style={styles.eventCard} key={item._id}>
       <View style={styles.eventImageContainer}>
-        <View style={styles.eventImageBlank} />
+        <Image source={item.image ? { uri: item.image } : require('../../../../assets/images/icon.png')} style={styles.eventImageStyle} />
       </View>
 
       <View style={styles.eventRight}>
         <View>
           <Text style={styles.eventTitle}>{item.title}</Text>
-                  </View>
-        <Text style={styles.eventDept}>{item.dept}</Text>
-                <Text style={styles.eventMeta}>Venue: {item.venue}</Text>
-                <Text style={styles.eventMeta}>Date: {item.date}</Text>
-                <Text style={styles.eventMeta}>Time: {item.time}</Text>
+        </View>
+        <Text style={styles.eventDept}>{item.dept || 'No Department'}</Text>
+        <Text style={styles.eventMeta}>Venue: {item.venue}</Text>
+        <Text style={styles.eventMeta}>Date: {item.startDate ? new Date(item.startDate).toLocaleDateString() : 'TBD'}</Text>
+        <Text style={styles.eventMeta}>Time: {item.startTime ? new Date(item.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'TBD'}</Text>
         <TouchableOpacity style={styles.viewRegs}>
           <Text style={styles.viewRegsText}>View Registrations</Text>
         </TouchableOpacity>
@@ -233,16 +315,30 @@ export default function OrgProfile() {
             <Text style={styles.infoLabel}><Text style={{ fontWeight: '700' }}>Phone: </Text>{profile.phone}</Text>
           </View>
 
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+            <Icon name="logout" size={20} color="#dc3545" />
+            <Text style={styles.logoutBtnText}>Logout</Text>
+          </TouchableOpacity>
+
           <View style={styles.eventsHeaderRow}>
             <Text style={styles.sectionTitle}>My Events</Text>
             <TouchableOpacity><Text style={styles.viewAll}>View All</Text></TouchableOpacity>
           </View>
 
-          {SAMPLE_EVENTS.map((ev) => (
-            <View key={ev.id} style={{ marginBottom: 12 }}>
-              {renderEvent({ item: ev })}
+          {loading ? (
+            <ActivityIndicator size="large" color="#6f52ff" style={{ marginTop: 20 }} />
+          ) : events.length > 0 ? (
+            events.map((ev) => (
+              <View key={ev._id} style={{ marginBottom: 12 }}>
+                {renderEvent({ item: ev })}
+              </View>
+            ))
+          ) : (
+            <View style={styles.emptyEventsContainer}>
+              <Text style={styles.emptyEventsText}>You haven't created any events yet.</Text>
             </View>
-          ))}
+          )}
+
         </View>
       </ScrollView>
       <BottomNavBar />
@@ -377,8 +473,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
+  },  
+  eventImageStyle: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
   },
-  eventImageBlank: { width: '100%', height: '100%', borderRadius: 12, backgroundColor: '#efeef5' },
   eventRight: { flex: 1, height: 150, justifyContent: 'space-between' },
   eventTitle: { fontSize: 18, fontWeight: '700' },
   eventDept: { marginTop: 6, fontWeight: "600", color: "#333" },
@@ -397,4 +497,30 @@ const styles = StyleSheet.create({
 
   viewRegs: { backgroundColor: '#6f52ff', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, alignSelf: 'flex-end' },
   viewRegsText: { color: '#fff', fontWeight: '700' },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#dc3545',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 20,
+  },
+  logoutBtnText: {
+    color: '#dc3545',
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  emptyEventsContainer: {
+    marginTop: 20,
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+  },
+  emptyEventsText: {
+    color: '#666',
+  },
 });

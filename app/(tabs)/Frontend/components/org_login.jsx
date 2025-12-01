@@ -29,15 +29,18 @@ export default function OrgLogin() {
 
       const data = await response.json();
 
-      if (response.ok) {
-        await AsyncStorage.setItem('token', data.token);
-        Alert.alert('Success', 'Logged in successfully!');
-        router.replace('/(tabs)/Frontend/Organizer/create_event');
+      // Check for the success flag and the organizer data from your API
+      if (data.success && data.organizer) {
+        // Save the entire organizer profile object as a string
+        await AsyncStorage.setItem('@organizerProfile', JSON.stringify(data.organizer));
+        
+        // Navigate to the home screen
+        router.replace('/(tabs)/Frontend/Organizer/home');
       } else {
-        Alert.alert('Error', data.message || 'Something went wrong!');
+        Alert.alert('Login Failed', data.message || 'Invalid email or password.');
       }
     } catch (error) {
-      Alert.alert('Error', 'Something went wrong!');
+      Alert.alert('Login Error', 'An error occurred. Please check your connection and try again.');
     }
   };
 

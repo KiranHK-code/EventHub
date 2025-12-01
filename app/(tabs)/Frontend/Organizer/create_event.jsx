@@ -14,6 +14,7 @@ import {
   Keyboard,
 } from "react-native";
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import Icon from "react-native-vector-icons/MaterialIcons";
@@ -129,6 +130,12 @@ export default function CreateEventScreen() {
         posterUrl = uploadJson.url;
       }
 
+      // Get the logged-in organizer's ID from storage
+      const organizerData = await AsyncStorage.getItem('@organizerProfile');
+      if (!organizerData) {
+        return Alert.alert("Authentication Error", "You must be logged in to create an event.");
+      }
+      const { _id: organizerId } = JSON.parse(organizerData);
       console.log('Sending basic info to', apiBase + '/addBasicInfo');
       const res = await fetch(apiBase + '/addBasicInfo', {
         method: 'POST',
@@ -137,7 +144,8 @@ export default function CreateEventScreen() {
           eventName,
           dept,
           eventType,
-          image: posterUrl, // server maps `image` -> poster url
+          poster: posterUrl, // Send the URL in the 'poster' field
+          organizerId: organizerId, // Send the organizer's ID
           description,
         }),
       });

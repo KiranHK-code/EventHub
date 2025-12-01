@@ -72,6 +72,7 @@ export default function OrgEditProfile() {
 
   function onSave() {
     const updatedProfile = {
+      _id: initialData._id, // Preserve the original user ID
       name,
       role,
       staffId,
