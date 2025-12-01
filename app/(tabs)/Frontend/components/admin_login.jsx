@@ -31,7 +31,7 @@ const AdminLogin = () => {
       if (response.ok) {
         await AsyncStorage.setItem('admin_token', data.token);
         Alert.alert('Login Successful');
-        router.push('/(tabs)/Frontend/Admin/profile1');
+        router.push('/(tabs)/Frontend/Admin/home');
       } else {
         Alert.alert('Login Failed', data.message || 'Something went wrong');
       }

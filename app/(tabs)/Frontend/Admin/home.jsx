@@ -80,12 +80,14 @@ export default function DashboardScreen() {
         ) : (
           events.filter(item => item.basicInfo?.status === 'pending').map((item) => (
             <View key={item.basicInfo._id} style={styles.eventCard}>
-              <Image 
-                source={item.basicInfo.poster ? { uri: `http://192.168.93.107:5000${item.basicInfo.poster}` } : require('../../../../assets/images/icon.png')} 
-                style={styles.eventImg} 
-              />
+              {item.basicInfo.poster && (
+                <Image 
+                  source={{ uri: item.basicInfo.poster }} 
+                  style={styles.eventImg} 
+                />
+              )}
 
-              <View style={{ flex: 1, marginLeft: 10 }}>
+              <View style={{ flex: 1, marginLeft: item.basicInfo.poster ? 10 : 0 }}>
                 <Text style={styles.eventTitle}>New Event: “{item.basicInfo.eventName}”</Text>
                 <Text style={styles.eventBy}>Dept: {item.basicInfo.dept}</Text>
                 <Text style={styles.eventDate}>
@@ -119,16 +121,21 @@ const styles = StyleSheet.create({
 
   header: {
     padding: 20,
+    padding: 24,
+    backgroundColor: "#000",
   },
   headerTitle: {
     fontSize: 22,
+    fontSize: 24,
     fontWeight: "700",
+    color: "#fff",
   },
 
   dashboardTitleBox: {
     backgroundColor: "#7B57F3",
     marginHorizontal: 20,
     padding: 12,
+    marginTop: 20,
     borderRadius: 10,
     alignItems: "center",
   },
@@ -149,6 +156,7 @@ const styles = StyleSheet.create({
     width: "31%",
     backgroundColor: "#fff",
     borderRadius: 12,
+    borderRadius: 16,
     padding: 12,
     alignItems: "center",
     elevation: 2,
@@ -200,6 +208,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 20,
     padding: 12,
+    padding: 16,
     borderRadius: 12,
     flexDirection: "row",
     elevation: 3,
@@ -214,6 +223,7 @@ const styles = StyleSheet.create({
   eventTitle: {
     fontWeight: "700",
     fontSize: 15,
+    marginBottom: 4,
   },
   eventBy: {
     color: "#555",
@@ -242,6 +252,7 @@ const styles = StyleSheet.create({
   viewBtn: {
     backgroundColor: "#7B57F3",
     height: 32,
+    alignSelf: 'flex-end',
     justifyContent: "center",
     paddingHorizontal: 10,
     borderRadius: 8,

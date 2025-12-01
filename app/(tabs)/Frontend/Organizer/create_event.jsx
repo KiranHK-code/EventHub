@@ -30,33 +30,31 @@ const cleanUrl = (value) => {
   return url.replace(/\/$/, "");
 };
 
-const guessExpoHost = () => {
-  const hostUri =
-    Constants.expoConfig?.hostUri ||
-    Constants.manifest2?.extra?.expoClient?.hostUri ||
-    Constants.manifest?.hostUri;
-
-  if (!hostUri) return null;
-  const host = hostUri.split(":")[0];
-  if (!host) return null;
-  return `http://${host}:5000`;
-};
-
 const getBaseUrl = () => {
+  // 1. Try to get the base URL from environment variables.
   const envUrl = cleanUrl(process.env.EXPO_PUBLIC_API_BASE_URL);
   if (envUrl) return envUrl;
 
-  const expoHostUrl = guessExpoHost();
-  if (expoHostUrl) return expoHostUrl;
+  // 2. Fallback to using the host URI from Expo's config.
+  // This is the most reliable method for local development.
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const host = hostUri.split(":")[0];
+    return `http://${host}:5000`;
+  }
 
-  if (Platform.OS === "android") return "http://10.0.2.2:5000";
-  if (Platform.OS === "ios") return "http://127.0.0.1:5000";
-  return "http://192.168.93.107:5000";
+  // 3. Final fallback for older setups or edge cases.
+  return "http://localhost:5000";
 };
 
 export default function CreateEventScreen() {
   const router = useRouter();
   const apiBase = useMemo(() => getBaseUrl(), []);
+
+  // --- DEBUGGING STEP ---
+  // Log the determined base URL to the console when the component mounts.
+  // Check if this URL is correct and reachable from your device.
+  useEffect(() => { console.log("API Base URL:", apiBase); }, [apiBase]);
 
   const [eventName, setEventName] = useState("");
   const [dept, setDept] = useState("");
@@ -135,7 +133,13 @@ export default function CreateEventScreen() {
       if (!organizerData) {
         return Alert.alert("Authentication Error", "You must be logged in to create an event.");
       }
-      const { _id: organizerId } = JSON.parse(organizerData);
+      
+      // --- DEBUGGING STEP ---
+      // Log the entire organizer profile to see its structure
+      const organizerProfile = JSON.parse(organizerData);
+      console.log('Organizer Profile from AsyncStorage:', organizerProfile);
+      const organizerId = organizerProfile._id; // Change `_id` if the key is different
+
       console.log('Sending basic info to', apiBase + '/addBasicInfo');
       const res = await fetch(apiBase + '/addBasicInfo', {
         method: 'POST',
@@ -145,7 +149,7 @@ export default function CreateEventScreen() {
           dept,
           eventType,
           poster: posterUrl, // Send the URL in the 'poster' field
-          organizerId: organizerId, // Send the organizer's ID
+          organizerId: organizerId, // Send the organizer's ID with the correct key
           description,
         }),
       });
@@ -155,7 +159,7 @@ export default function CreateEventScreen() {
         // Pass eventId to register_event screen
         router.push({
           pathname: '/(tabs)/Frontend/Organizer/register_event',
-          params: { eventId: data.eventId }
+          params: { eventId: data.eventId, eventType: eventType }
         });
       } else {
         Alert.alert('Error', data.error || 'Failed to save event');

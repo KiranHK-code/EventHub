@@ -18,6 +18,8 @@ import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import BottomNavBar from "../components/navbar";
 import Constants from "expo-constants";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 
 const cleanUrl = (value) => {
   if (!value) return null;
@@ -175,10 +177,18 @@ export default function ContactEventScreen() {
 
     setLoading(true);
     try {
+      // Get the organizer ID from storage, as it's needed for the update.
+      const organizerData = await AsyncStorage.getItem('@organizerProfile');
+      if (!organizerData) {
+        throw new Error("You must be logged in to save event details.");
+      }
+      const { _id: organizerId } = JSON.parse(organizerData);
+
       // First, save registration details if they exist
       if (registrationDraft) {
         const registrationData = {
           eventId: eventId,
+          organizerId: organizerId, // Add organizerId to the registration data
           ...registrationDraft
         };
 
@@ -205,6 +215,7 @@ export default function ContactEventScreen() {
 
       const contactData = {
         eventId: eventId, // Add eventId
+        organizerId: organizerId, // Also add organizerId here for consistency
         name: validContacts[0].name, // Primary contact
         phone: validContacts[0].phone,
         email: validContacts[0].email,

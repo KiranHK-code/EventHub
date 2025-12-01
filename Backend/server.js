@@ -59,6 +59,7 @@ const RegistrationSchema = new mongoose.Schema(
 
     venue: { type: String, required: true },
     participants: { type: String },
+    googleFormLink: { type: String }, // Add this field
   },
   { timestamps: true }
 );
@@ -95,6 +96,20 @@ const ContactSchema = new mongoose.Schema({
 const ContactInfo = mongoose.model("ContactInfo", ContactSchema);
 
 // ---------------------------------------------------------
+// 4️⃣ STUDENT EVENT REGISTRATION SCHEMA
+// ---------------------------------------------------------
+const StudentEventRegistrationSchema = new mongoose.Schema({
+  studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
+  eventId: { type: mongoose.Schema.Types.ObjectId, ref: 'BasicInfo', required: true },
+  registrationDate: { type: Date, default: Date.now },
+}, { timestamps: true });
+
+// Add a unique index to prevent a student from registering for the same event twice
+StudentEventRegistrationSchema.index({ studentId: 1, eventId: 1 }, { unique: true });
+
+const StudentEventRegistration = mongoose.model("StudentEventRegistration", StudentEventRegistrationSchema);
+
+// ---------------------------------------------------------
 // 4️⃣ NOTIFICATION SCHEMA
 // ---------------------------------------------------------
 const NotificationSchema = new mongoose.Schema({
@@ -103,8 +118,9 @@ const NotificationSchema = new mongoose.Schema({
   title: { type: String, required: true },
   message: { type: String, required: true },
   // 'type' will be used by the frontend to show the correct icon (e.g., 'Approved', 'Rejected')
-  type: { type: String, enum: ['Approved', 'Rejected', 'Info'], required: true },
-  isRead: { type: Boolean, default: false },
+  type: { type: String, enum: ['Approved', 'Rejected', 'Info', 'New Event'], required: true },
+  isRead: { type: Boolean, default: false },  
+  recipient: { type: String, enum: ['organizer', 'admin', 'student'], required: true }, // To distinguish between notifications for organizers, admins, and students
 }, { timestamps: true });
 
 const Notification = mongoose.model("Notification", NotificationSchema);
@@ -155,16 +171,28 @@ app.put("/api/organizers/profile/:organizerId", async (req, res) => {
 // --------- CREATE BASIC INFO ----------
 app.post("/addBasicInfo", async (req, res) => {
   try {
-    // accept either `image` or `poster` fields from the client
-    const { organizerId, ...rest } = req.body;
+    const { organizerId } = req.body;
     if (!organizerId) {
       return res.status(400).json({ success: false, error: "Organizer ID is required to create an event." });
     }
-    // The payload from the client now directly matches the schema
+    // The payload from the client directly matches the schema
     const payload = { ...req.body };
     
     const info = new BasicInfo(payload);
     const saved = await info.save();
+
+    // --- Create a notification for the admin ---
+    const adminNotification = new Notification({
+      eventId: saved._id,
+      organizerId: saved.organizerId, // Pass the organizerId from the saved event
+      recipient: 'admin',
+      type: 'Info',
+      title: 'New Event Submission',
+      message: `A new event '${saved.eventName}' is ready for review.`,
+    });
+    await adminNotification.save();
+    console.log(`✅ Admin notification created for new event.`);
+    // --- End notification creation ---
 
     console.log("✅ BasicInfo saved:", saved);
     res.json({ success: true, eventId: saved._id });
@@ -177,7 +205,7 @@ app.post("/addBasicInfo", async (req, res) => {
 // --------- SAVE REGISTRATION DETAILS ----------
 app.post("/create-event", async (req, res) => {
   try {
-    const { eventId, startDate, endDate, startTime, endTime, isFreeEvent, price, isAllDept, selectedDept, venue, participants } = req.body;
+    const { eventId, startDate, endDate, startTime, endTime, isFreeEvent, price, isAllDept, selectedDept, venue, participants, googleFormLink } = req.body;
 
     if (!eventId) {
       return res.status(400).json({ success: false, error: "Event ID is required" });
@@ -194,7 +222,8 @@ app.post("/create-event", async (req, res) => {
       isAllDept,
       selectedDept,
       venue,
-      participants
+      participants,
+      googleFormLink // Add the googleFormLink here
     });
     await reg.save();
 
@@ -239,8 +268,14 @@ app.get("/review", async (req, res) => {
         const registration = await Registration.findOne({ eventId: basic._id });
         const contact = await ContactInfo.findOne({ eventId: basic._id });
 
+        // Make a copy of the basic info to avoid modifying the mongoose document directly
+        const basicInfoObject = basic.toObject();
+        // Ensure the poster path uses forward slashes for URL compatibility
+        if (basicInfoObject.poster) {
+          basicInfoObject.poster = basicInfoObject.poster.replace(/\\/g, "/");
+        }
         return {
-          basicInfo: basic,
+          basicInfo: basicInfoObject,
           eventDetails: registration ? {
             startDate: registration.startDate,
             endDate: registration.endDate,
@@ -269,6 +304,151 @@ app.get("/review", async (req, res) => {
   } catch (err) {
     console.error("❌ /review error:", err.message);
     res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// --------- GET FULL DETAILS FOR A SINGLE EVENT (for Student View) ----------
+app.get("/event-details/:eventId", async (req, res) => {
+  try {
+    const { eventId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      return res.status(400).json({ success: false, error: "Invalid Event ID" });
+    }
+
+    const basic = await BasicInfo.findById(eventId);
+
+    if (!basic) {
+      return res.status(404).json({ success: false, error: "Event not found" });
+    }
+
+    const registration = await Registration.findOne({ eventId: basic._id });
+    const contact = await ContactInfo.findOne({ eventId: basic._id });
+
+    // Construct the full URL for the poster
+    const basicInfoObject = basic.toObject();
+    if (basicInfoObject.poster) {
+      basicInfoObject.poster = `${req.protocol}://${req.get('host')}${basicInfoObject.poster.startsWith('/') ? '' : '/'}${basicInfoObject.poster.replace(/\\/g, "/")}`;
+    }
+
+    const combined = {
+      basicInfo: basicInfoObject,
+      eventDetails: registration ? registration.toObject() : {},
+      contactInfo: contact ? contact.toObject() : {}
+    };
+
+    res.json({ success: true, event: combined });
+  } catch (err) {
+    console.error(`❌ /event-details/${req.params.eventId} error:`, err.message);
+    res.status(500).json({ success: false, error: "Internal Server Error" });
+  }
+});
+
+// --------- GET ADMIN NOTIFICATIONS ----------
+app.get("/admin-notifications", async (req, res) => {
+  try {
+    const notifications = await Notification.find({ recipient: 'admin' })
+      .populate('eventId', 'eventName') // Get eventName from BasicInfo
+      .sort({ createdAt: -1 }) // Show newest first
+      .limit(50); // Limit to the last 50 notifications
+
+    res.status(200).json({
+      success: true,
+      notifications: notifications,
+    });
+  } catch (err) {
+    console.error("❌ /admin-notifications error:", err.message);
+    res.status(500).json({
+      success: false,
+      error: "Internal Server Error"
+    });
+  }
+});
+
+// --------- MARK NOTIFICATION AS READ ----------
+app.put("/notifications/:notificationId/read", async (req, res) => {
+  try {
+    const { notificationId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(notificationId)) {
+      return res.status(400).json({ success: false, error: "Invalid Notification ID" });
+    }
+
+    const updatedNotification = await Notification.findByIdAndUpdate(
+      notificationId,
+      { isRead: true },
+      { new: true } // Return the updated document
+    );
+
+    if (!updatedNotification) {
+      return res.status(404).json({ success: false, error: "Notification not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Notification marked as read.",
+    });
+  } catch (err) {
+    console.error("❌ /notifications/:notificationId/read error:", err.message);
+    res.status(500).json({ success: false, error: "Internal Server Error" });
+  }
+});
+
+// --------- GET STUDENT NOTIFICATIONS ----------
+app.get("/api/students/notifications", async (req, res) => {
+  try {
+    // Fetch notifications intended for all students
+    const notifications = await Notification.find({ recipient: 'student' })
+      .populate('eventId', 'eventName') // Get eventName from BasicInfo
+      .sort({ createdAt: -1 }) // Show newest first
+      .limit(50);
+
+    res.status(200).json({
+      success: true,
+      notifications: notifications,
+    });
+  } catch (err) {
+    console.error("❌ /api/students/notifications error:", err.message);
+    res.status(500).json({
+      success: false,
+      error: "Internal Server Error"
+    });
+  }
+});
+
+// --------- GET SINGLE EVENT FOR REVIEW ----------
+app.get("/review/:eventId", async (req, res) => {
+  try {
+    const { eventId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      return res.status(400).json({ success: false, error: "Invalid Event ID" });
+    }
+
+    const basic = await BasicInfo.findById(eventId);
+
+    if (!basic) {
+      return res.status(404).json({ success: false, error: "Event not found" });
+    }
+
+    const registration = await Registration.findOne({ eventId: basic._id });
+    const contact = await ContactInfo.findOne({ eventId: basic._id });
+
+    const basicInfoObject = basic.toObject();
+    if (basicInfoObject.poster) {
+      basicInfoObject.poster = basicInfoObject.poster.replace(/\\/g, "/");
+    }
+
+    const combined = {
+      basicInfo: basicInfoObject,
+      eventDetails: registration ? registration.toObject() : {},
+      contactInfo: contact ? contact.toObject() : {}
+    };
+
+    res.json(combined);
+  } catch (err) {
+    console.error(`❌ /review/${req.params.eventId} error:`, err.message);
+    res.status(500).json({ success: false, error: "Internal Server Error" });
   }
 });
 
@@ -376,18 +556,34 @@ app.put("/review/:eventId", async (req, res) => {
       });
     }
 
-    // --- Create a notification for the organizer ---
+    // --- Create notifications ---
     if (updated.organizerId) {
+      // 1. Notification for the Organizer
       const notificationType = status.charAt(0).toUpperCase() + status.slice(1); // 'approved' -> 'Approved'
-      const notification = new Notification({
+      const orgNotification = new Notification({
         organizerId: updated.organizerId,
         eventId: updated._id,
+        recipient: 'organizer',
         type: notificationType,
         title: `Event ${notificationType}`,
         message: `Your event '${updated.eventName}' has been ${status}.`,
       });
-      await notification.save();
-      console.log(`✅ Notification created for event ${status}.`);
+      await orgNotification.save();
+      console.log(`✅ Organizer notification created for event ${status}.`);
+
+      // 2. Notification for Students (if approved)
+      if (status === 'approved') {
+        const studentNotification = new Notification({
+          organizerId: updated.organizerId, // Keep track of who organized it
+          eventId: updated._id,
+          recipient: 'student',
+          type: 'New Event',
+          title: 'New Event Available!',
+          message: `Explore the newly added event: '${updated.eventName}'.`,
+        });
+        await studentNotification.save();
+        console.log(`✅ Student notification created for new approved event.`);
+      }
     }
 
     res.json({ success: true, message: `Event ${status}!`, event: updated });
@@ -396,6 +592,85 @@ app.put("/review/:eventId", async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// ---------------------------------------------------------
+// STUDENT EVENT REGISTRATION ENDPOINTS
+// ---------------------------------------------------------
+
+// --------- REGISTER STUDENT FOR AN EVENT ----------
+app.post("/api/students/register-event", async (req, res) => {
+  try {
+    const { studentId, eventId } = req.body;
+
+    if (!studentId || !eventId) {
+      return res.status(400).json({ success: false, message: "Student ID and Event ID are required." });
+    }
+
+    // Check if the event exists and is approved
+    const event = await BasicInfo.findOne({ _id: eventId, status: 'approved' });
+    if (!event) {
+      return res.status(404).json({ success: false, message: "Approved event not found." });
+    }
+
+    // Create the registration
+    const newRegistration = new StudentEventRegistration({ studentId, eventId });
+    await newRegistration.save();
+
+    res.status(201).json({ success: true, message: "Successfully registered for the event!" });
+
+  } catch (err) {
+    // Handle the case where the unique index is violated (already registered)
+    if (err.code === 11000) {
+      return res.status(409).json({ success: false, message: "You are already registered for this event." });
+    }
+    console.error("❌ /api/students/register-event error:", err.message);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+});
+
+// --------- GET EVENTS REGISTERED BY A STUDENT ----------
+app.get("/api/students/:studentId/registered-events", async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ success: false, message: "Invalid Student ID." });
+    }
+
+    const registrations = await StudentEventRegistration.find({ studentId })
+      .populate({
+        path: 'eventId', // This is the 'BasicInfo' document
+        model: 'BasicInfo'
+      });
+
+    // Now, for each registered event, get its registration details (venue, date, etc.)
+    const detailedRegisteredEvents = await Promise.all(
+      registrations.map(async (reg) => {
+        if (!reg.eventId) return null;
+
+        const registrationDetails = await Registration.findOne({ eventId: reg.eventId._id });
+        const basicInfoObject = reg.eventId.toObject();
+
+        // Construct the full URL for the poster
+        if (basicInfoObject.poster) {
+          basicInfoObject.poster = `${req.protocol}://${req.get('host')}${basicInfoObject.poster.startsWith('/') ? '' : '/'}${basicInfoObject.poster.replace(/\\/g, "/")}`;
+        }
+
+        return {
+          basicInfo: basicInfoObject,
+          eventDetails: registrationDetails ? registrationDetails.toObject() : {},
+        };
+      })
+    );
+
+    res.status(200).json({ success: true, events: detailedRegisteredEvents.filter(Boolean) });
+
+  } catch (err) {
+    console.error(`❌ /api/students/${req.params.studentId}/registered-events error:`, err.message);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+});
+
 
 // ---------------------------------------------------------
 app.listen(5000, () => console.log("Server running on port 5000"));

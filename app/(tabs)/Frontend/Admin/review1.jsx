@@ -13,7 +13,9 @@ export default function ReviewDetails() {
 	const params = useLocalSearchParams();
 
 	useEffect(() => {
-		fetchEvent();
+		if (params.id) {
+			fetchEvent(params.id);
+		}
 	}, []);
 
 	const router = useRouter();
@@ -74,29 +76,17 @@ export default function ReviewDetails() {
 		setRejectReason("");
 	};
 
-	const fetchEvent = async () => {
+	const fetchEvent = async (eventId) => {
+		setLoading(true);
 		try {
-			const res = await fetch('http://192.168.93.107:5000/review');
+			// Fetch only the specific event using its ID
+			const res = await fetch(`http://192.168.93.107:5000/review/${eventId}`);
 			const json = await res.json();
-
-			let item = null;
-			// Prefer index param (passed as string), fallback to first
-			if (params?.index != null) {
-				const idx = parseInt(params.index, 10);
-				if (!isNaN(idx) && json[idx]) item = json[idx];
-			}
-
-			// If an id param is provided, try to find by basicInfo._id
-			if (!item && params?.id) {
-				item = json.find((it) => it.basicInfo && it.basicInfo._id === params.id);
-			}
-
-			if (!item) item = json[0] || null;
-
-			setData(item);
-			setLoading(false);
+			setData(json);
 		} catch (err) {
 			console.error('❌ fetchEvent error:', err);
+			Alert.alert("Error", "Failed to load event details.");
+		} finally {
 			setLoading(false);
 		}
 	};
@@ -108,10 +98,6 @@ export default function ReviewDetails() {
 		? { uri: data.basicInfo.poster }
 		: require('../../../../assets/images/CEMS-4 (2).png');
 
-	const posterFullUrl = data.basicInfo?.poster
-		? `http://192.168.93.107:5000${data.basicInfo.poster}`
-		: null;
-
 	return (
 		<SafeAreaView style={styles.safeArea}>
 			<StatusBar barStyle="light-content" backgroundColor="#000" />
@@ -122,8 +108,8 @@ export default function ReviewDetails() {
 				<Text style={styles.headerTitle}>Review Event</Text>
 			</View>
 			<ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 80 }}>
-				{posterFullUrl ? (
-					<Image source={{ uri: posterFullUrl }} style={styles.poster} resizeMode="cover" />
+				{data.basicInfo?.poster ? (
+					<Image source={posterSource} style={styles.poster} resizeMode="cover" />
 				) : (
 					<View style={[styles.poster, styles.posterPlaceholder]}>
 						<Text style={styles.posterPlaceholderText}>No Poster</Text>

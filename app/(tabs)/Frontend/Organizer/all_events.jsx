@@ -27,24 +27,20 @@ const cleanUrl = (value) => {
   return url.replace(/\/$/, "");
 };
 
-const guessExpoHost = () => {
-  const hostUri =
-    Constants.expoConfig?.hostUri ||
-    Constants.manifest2?.extra?.expoClient?.hostUri ||
-    Constants.manifest?.hostUri;
-
-  if (!hostUri) return null;
-  const host = hostUri.split(":")[0];
-  if (!host) return null;
-  return `http://${host}:5000`;
-};
-
 const getBaseUrl = () => {
+  // 1. Try to get the base URL from environment variables.
   const envUrl = cleanUrl(process.env.EXPO_PUBLIC_API_BASE_URL);
   if (envUrl) return envUrl;
-  const expoHostUrl = guessExpoHost();
-  if (expoHostUrl) return expoHostUrl;
-  return "http://192.168.93.107:5000"; // Fallback
+
+  // 2. Fallback to using the host URI from Expo's config.
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const host = hostUri.split(":")[0];
+    return `http://${host}:5000`;
+  }
+
+  // 3. Final fallback for older setups or edge cases.
+  return "http://localhost:5000";
 };
 // --- End of helper functions ---
 
