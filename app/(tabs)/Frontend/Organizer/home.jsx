@@ -135,7 +135,7 @@ export default function HomeScreen() {
 
         {events.map((item) => (
           <View key={item._id} style={styles.eventCard}>
-            <Image source={item.image ? { uri: item.image } : require('../../../../assets/images/icon.png')} style={styles.eventImage} />
+            <Image source={item.image ? { uri: apiBase +item.image } : require('../../../../assets/images/icon.png')} style={styles.eventImage} />
 
             <View style={{ flex: 1, paddingLeft: 10 }}>
               <Text style={styles.eventTitle}>{item.title}</Text>

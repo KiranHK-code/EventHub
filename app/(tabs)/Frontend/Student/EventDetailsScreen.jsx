@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert, Image, ScrollView, Platform, StatusBar, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from "expo-constants";
 
 // --- Helper functions to get the API URL ---
@@ -25,13 +26,21 @@ const getBaseUrl = () => {
   return "http://localhost:5000";
 };
 
+// --- Helper to get Student ID ---
+const getStudentId = async () => {
+  // In a real app, you'd get this from AsyncStorage after login
+  const studentData = await AsyncStorage.getItem('student_profile');
+  // Using a hardcoded ID for testing. Replace with the line above in production.
+  // return studentData ? JSON.parse(studentData)._id : null;
+  return '66549b3a58518b7617456360'; // Replace with a real student ID from your DB for testing
+};
+
 // This component displays event details for a student.
 export default function EventDetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { eventId } = params;
   const apiBase = useMemo(() => getBaseUrl(), []);
-  
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -57,22 +66,52 @@ export default function EventDetailsScreen() {
   }, [eventId, apiBase]);
 
   // Function to handle the registration button press
-  const handleRegister = async (url) => {
-    if (!url) {
-      Alert.alert("Registration Not Available", "The registration link for this event is not available yet.");
-      return;
-    }
-  
+  const handleRegister = async () => {
+    setLoading(true);
     try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
+      const studentId = await getStudentId();
+      if (!studentId) {
+        Alert.alert("Error", "Could not identify student. Please log in again.");
+        setLoading(false);
+        return;
+      }
+
+      // 1. Call the backend to register the student
+      const response = await fetch(`${apiBase}/api/students/register-event`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId, eventId }),
+      });
+
+      const data = await response.json();
+
+      // Handle cases where registration fails (e.g., already registered)
+      if (!response.ok) {
+        Alert.alert("Registration Failed", data.message || "Could not register for the event.");
+        setLoading(false);
+        return;
+      }
+
+      Alert.alert("Success!", "You have been registered for the event.");
+
+      // 2. If a Google Form link exists, open it after successful backend registration
+      const formUrl = event?.eventDetails?.googleFormLink;
+      if (formUrl) {
+        const supported = await Linking.canOpenURL(formUrl);
+        if (supported) {
+          await Linking.openURL(formUrl);
+        } else {
+          Alert.alert("Form Link Invalid", `Could not open the registration form link.`);
+        }
       } else {
-        Alert.alert("Invalid Link", `Cannot open this URL. Please check the link or try again later.`);
+        // If no form link, just navigate back or stay
+        router.back();
       }
     } catch (error) {
       console.error("Failed to open URL:", error);
-      Alert.alert("Error", "Could not open the registration link. Please try again.");
+      Alert.alert("Error", "An unexpected error occurred during registration.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -110,15 +149,17 @@ export default function EventDetailsScreen() {
           {eventDetails.startTime && <Text style={styles.detailText}>Time: {new Date(eventDetails.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>}
           {eventDetails.price && <Text style={styles.detailText}>Price: {eventDetails.isFreeEvent ? 'Free' : `₹${eventDetails.price}`}</Text>}
 
-          {/* The "Register" button will only appear if a googleFormLink is present */}
-          {eventDetails.googleFormLink && (
-            <TouchableOpacity 
-              style={styles.registerButton} 
-              onPress={() => handleRegister(eventDetails.googleFormLink)}
-            >
+          <TouchableOpacity 
+            style={styles.registerButton} 
+            onPress={handleRegister}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
               <Text style={styles.registerButtonText}>Register Now</Text>
-            </TouchableOpacity>
-          )}
+            )}
+          </TouchableOpacity>
         </ScrollView>
       )}
     </View>

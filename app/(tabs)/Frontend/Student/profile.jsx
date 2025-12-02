@@ -1,6 +1,5 @@
-// profile.jsx
-import { router, useLocalSearchParams } from "expo-router";
-import React, { useState, useCallback, memo } from "react";
+import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
+import React, { useState, useCallback, memo, useEffect, useMemo } from "react";
 import {
   SafeAreaView,
   View,
@@ -13,14 +12,45 @@ import {
   Image,
   Platform,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import BottomNavBar from "../components/navbar";
 import Icon from "react-native-vector-icons/MaterialIcons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
 
 // NOTE: You must install 'expo-image-picker' for this feature to work!
 // import * as ImagePicker from 'expo-image-picker'; 
 
 const { width } = Dimensions.get("window");
+
+/* ------------------ API and Auth Helpers ------------------ */
+
+const cleanUrl = (value) => {
+  if (!value) return null;
+  let url = value.trim();
+  if (!/^https?:\/\//.test(url)) {
+    url = `http://${url}`;
+  }
+  return url.replace(/\/$/, "");
+};
+
+const getBaseUrl = () => {
+  const envUrl = cleanUrl(process.env.EXPO_PUBLIC_API_BASE_URL);
+  if (envUrl) return envUrl;
+
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const host = hostUri.split(":")[0];
+    return `http://${host}:5000`;
+  }
+
+  return "http://localhost:5000";
+};
+
+const getStudentId = async () => {
+  return '66549b3a58518b7617456360'; // Hardcoded for testing
+};
 
 /* ------------------ Initial Profile Data & Events ------------------ */
 const INITIAL_PROFILE_DATA = {
@@ -31,13 +61,7 @@ const INITIAL_PROFILE_DATA = {
   email: "",
   phone: "",
 };
-const INITIAL_IMAGE_URI = null; 
-
-const EVENTS = [
-  { id: "1", title: "Code Valut", dept: "Department of CS&BS", venue: "MIT Mysore", date: "Sept 19, 2025", time: "11:00 AM", registered: true },
-  { id: "2", title: "Yuvan", dept: "Department of CV", venue: "MIT Mysore", date: "Dec 08, 2025", time: "09:00 AM", registered: true },
-  { id: "3", title: "Hackathon 2025", dept: "Department of IT", venue: "MIT Mysore", date: "Oct 02, 2025", time: "10:00 AM", registered: true },
-];
+const INITIAL_IMAGE_URI = null;
 
 /* ------------------ Presentational components ------------------ */
 
@@ -101,21 +125,25 @@ const RegisteredBadge = () => (
   </View>
 );
 
-const EventItem = memo(({ item, onPress }) => {
+const EventItem = memo(({ item, onPress, apiBase }) => {
+  const posterUrl = item.basicInfo.poster.startsWith('http')
+    ? item.basicInfo.poster
+    : `${apiBase}/${item.basicInfo.poster.replace(/\\/g, "/")}`;
+
   return (
     <View style={styles.eventCard}>
       <View style={styles.eventImageContainer}>
-        <View style={styles.eventImageBlank} />
+        <Image source={{ uri: posterUrl }} style={styles.eventImageBlank} />
       </View>
       <View style={styles.eventInfo}>
         <View style={styles.eventTitleRow}>
-          <Text style={styles.eventTitle}>{item.title}</Text>
-          {item.registered ? <RegisteredBadge /> : null}
+          <Text style={styles.eventTitle}>{item.basicInfo.eventName}</Text>
+          <RegisteredBadge />
         </View>
-        <Text style={styles.eventDept}>{item.dept}</Text>
-        <Text style={styles.eventMeta}>Venue: {item.venue}</Text>
-        <Text style={styles.eventMeta}>Date: {item.date}</Text>
-        <Text style={styles.eventMeta}>Time: {item.time}</Text>
+        <Text style={styles.eventDept}>{item.basicInfo.dept}</Text>
+        <Text style={styles.eventMeta}>Venue: {item.eventDetails.venue}</Text>
+        <Text style={styles.eventMeta}>Date: {new Date(item.eventDetails.startDate).toLocaleDateString()}</Text>
+        <Text style={styles.eventMeta}>Time: {item.eventDetails.startTime}</Text>
         <TouchableOpacity style={styles.detailsButton} onPress={() => onPress?.(item)}>
           <Text style={styles.detailsButtonText}>View Details</Text>
         </TouchableOpacity>
@@ -129,10 +157,66 @@ const EventItem = memo(({ item, onPress }) => {
 export default function ProfileScreen() {
   const [profileData, setProfileData] = useState(INITIAL_PROFILE_DATA);
   const [profileImageUri, setProfileImageUri] = useState(INITIAL_IMAGE_URI);
+  const [registeredEvents, setRegisteredEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const apiBase = useMemo(() => getBaseUrl(), []);
   const params = useLocalSearchParams();
 
-  // Logic to handle update from EditProfileScreen via router.replace params
-  React.useEffect(() => {
+  const fetchRegisteredEvents = async () => {
+    setLoading(true);
+    try {
+      const studentId = await getStudentId();
+      if (!studentId) {
+        setLoading(false);
+        return;
+      }
+      const response = await fetch(`${apiBase}/api/students/${studentId}/registered-events`);
+      const data = await response.json();
+      if (data.success) {
+        setRegisteredEvents(data.events);
+      } else {
+        console.error("Failed to fetch registered events:", data.message);
+      }
+    } catch (error) {
+      console.error('Failed to fetch registered events:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchRegisteredEvents();
+    }, [])
+  );
+
+  const loadProfile = useCallback(async () => {
+    try {
+      const storedProfile = await AsyncStorage.getItem("userProfile");
+      if (storedProfile) {
+        const parsedProfile = JSON.parse(storedProfile);
+        setProfileData(parsedProfile.data || INITIAL_PROFILE_DATA);
+        setProfileImageUri(parsedProfile.imageUri || INITIAL_IMAGE_URI);
+      }
+    } catch (error) {
+      console.error("Failed to load profile:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
+  const saveProfile = useCallback(async (data, imageUri) => {
+    try {
+      const profileToSave = JSON.stringify({ data, imageUri });
+      await AsyncStorage.setItem("userProfile", profileToSave);
+    } catch (error) {
+      console.error("Failed to save profile:", error);
+    }
+  }, []);
+
+  useEffect(() => {
     if (params?.updatedProfile) {
       try {
         const updatedData = JSON.parse(params.updatedProfile);
@@ -140,11 +224,12 @@ export default function ProfileScreen() {
         if (updatedData.imageUri) {
           setProfileImageUri(updatedData.imageUri);
         }
+        saveProfile(updatedData, updatedData.imageUri);
       } catch (error) {
         console.error("Error parsing updated profile data:", error);
       }
     }
-  }, [params?.updatedProfile]);
+  }, [params?.updatedProfile, saveProfile]);
 
   // Handler for image selection (using expo-image-picker structure)
   const handleImageSelect = useCallback(async () => {
@@ -225,15 +310,24 @@ export default function ProfileScreen() {
     });
   };
 
-  const renderEvent = useCallback(({ item }) => <EventItem item={item} onPress={onViewDetails} />, [onViewDetails]);
+  const renderEvent = useCallback(({ item }) => <EventItem item={item} onPress={onViewDetails} apiBase={apiBase} />, [onViewDetails, apiBase]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <Header onBack={goBack} />
+        <ActivityIndicator size="large" color="#6F45F0" style={{ marginTop: 20 }} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" />
       <Header onBack={goBack} />
       <FlatList
-        data={EVENTS.filter(e => e.registered)}
-        keyExtractor={(it) => it.id}
+        data={registeredEvents}
+        keyExtractor={(it) => it.basicInfo._id}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
