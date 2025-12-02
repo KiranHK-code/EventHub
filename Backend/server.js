@@ -565,8 +565,8 @@ app.put("/review/:eventId", async (req, res) => {
         eventId: updated._id,
         recipient: 'organizer',
         type: notificationType,
-        title: `Event ${notificationType}`,
-        message: `Your event '${updated.eventName}' has been ${status}.`,
+        title: `Your event '${updated.eventName}' has been ${status}.`,
+        message: `The status of your event has been updated.`,
       });
       await orgNotification.save();
       console.log(`✅ Organizer notification created for event ${status}.`);
@@ -643,17 +643,19 @@ app.get("/api/students/:studentId/registered-events", async (req, res) => {
         model: 'BasicInfo'
       });
 
-    // Now, for each registered event, get its registration details (venue, date, etc.)
+    // Now, for each registered event, get its full details
     const detailedRegisteredEvents = await Promise.all(
       registrations.map(async (reg) => {
         if (!reg.eventId) return null;
 
+        // Find the corresponding registration details (venue, date, etc.)
         const registrationDetails = await Registration.findOne({ eventId: reg.eventId._id });
         const basicInfoObject = reg.eventId.toObject();
 
         // Construct the full URL for the poster
         if (basicInfoObject.poster) {
-          basicInfoObject.poster = `${req.protocol}://${req.get('host')}${basicInfoObject.poster.startsWith('/') ? '' : '/'}${basicInfoObject.poster.replace(/\\/g, "/")}`;
+          const posterPath = basicInfoObject.poster.replace(/\\/g, "/");
+          basicInfoObject.poster = `${req.protocol}://${req.get('host')}${posterPath.startsWith('/') ? '' : '/'}${posterPath}`;
         }
 
         return {
@@ -663,7 +665,7 @@ app.get("/api/students/:studentId/registered-events", async (req, res) => {
       })
     );
 
-    res.status(200).json({ success: true, events: detailedRegisteredEvents.filter(Boolean) });
+    res.status(200).json({ success: true, events: detailedRegisteredEvents.filter(e => e !== null) });
 
   } catch (err) {
     console.error(`❌ /api/students/${req.params.studentId}/registered-events error:`, err.message);

@@ -11,13 +11,11 @@ import {
   FlatList,
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialIcons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import BottomNavBar from "../components/navbar";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const REGISTERED_KEY = "student_registered_events";
 
 // --- Helper functions to get the API URL ---
 const cleanUrl = (value) => {
@@ -45,53 +43,36 @@ const getBaseUrl = () => {
   return "http://localhost:5000";
 };
 
+// --- Helper to get Student ID ---
+const getStudentId = async () => {
+  // Using a hardcoded ID for testing. Replace with real logic in production.
+  return '66549b3a58518b7617456360';
+};
+
 export default function StudentHome() {
   const [approvedEvents, setApprovedEvents] = useState([]);
-  const [registeredIds, setRegisteredIds] = useState([]);
+  const [registeredEvents, setRegisteredEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   const apiBase = useMemo(() => getBaseUrl(), []);
-  useEffect(() => {
-    fetchApproved();
-    loadRegistered();
-  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadAllData = async () => {
+        setLoading(true);
+        await Promise.all([fetchApproved(), fetchRegisteredEvents()]);
+        setLoading(false);
+      };
+      loadAllData();
+    }, [])
+  );
 
   const getEventId = (event) =>
     event?.basicInfo?._id ||
     event?.basicInfo?.eventId ||
     event?.basicInfo?.eventName ||
     Math.random().toString();
-
-  const loadRegistered = async () => {
-    try {
-      const stored = await AsyncStorage.getItem(REGISTERED_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setRegisteredIds(Array.isArray(parsed) ? parsed : []);
-      }
-    } catch (error) {
-      console.log("❌ loadRegistered error:", error);
-    }
-  };
-
-  const persistRegistered = async (nextIds) => {
-    try {
-      await AsyncStorage.setItem(REGISTERED_KEY, JSON.stringify(nextIds));
-    } catch (error) {
-      console.log("❌ persistRegistered error:", error);
-    }
-  };
-
-  const handleToggleRegistration = async (eventId) => {
-    const exists = registeredIds.includes(eventId);
-    const nextIds = exists
-      ? registeredIds.filter((id) => id !== eventId)
-      : [...registeredIds, eventId];
-
-    setRegisteredIds(nextIds);
-    persistRegistered(nextIds);
-  };
 
   const fetchApproved = async () => {
     try {
@@ -108,8 +89,23 @@ export default function StudentHome() {
       setApprovedEvents(approved);
     } catch (err) {
       console.log("❌ fetchApproved error:", err);
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const fetchRegisteredEvents = async () => {
+    try {
+      const studentId = await getStudentId();
+      if (!studentId) return;
+
+      const response = await fetch(`${apiBase}/api/students/${studentId}/registered-events`);
+      const data = await response.json();
+      if (data.success) {
+        setRegisteredEvents(data.events);
+      } else {
+        console.error("Failed to fetch registered events:", data.message);
+      }
+    } catch (error) {
+      console.error('Failed to fetch registered events:', error);
     }
   };
 
@@ -126,26 +122,23 @@ export default function StudentHome() {
 
   const sortedEvents = useMemo(() => sortByDate(approvedEvents), [approvedEvents]);
 
-  const registeredEvents = useMemo(
-    () => sortedEvents.filter((item) => registeredIds.includes(getEventId(item))),
-    [sortedEvents, registeredIds]
-  );
-
   const upcomingEvents = useMemo(() => sortedEvents.slice(0, 5), [sortedEvents]);
 
-  const exploreEvents = useMemo(
-    () =>
-      sortedEvents
-        .filter((item) => !registeredIds.includes(getEventId(item)))
-        .slice(0, 8),
-    [sortedEvents, registeredIds]
-  );
+  const exploreEvents = useMemo(() => {
+    const registeredIds = new Set(registeredEvents.map(e => e.basicInfo._id));
+    return sortedEvents
+      .filter((item) => !registeredIds.has(getEventId(item)))
+      .slice(0, 8);
+  }, [sortedEvents, registeredEvents]);
 
-  const handleViewAll = () => router.push("/(tabs)/Frontend/Student/student_event");
+  const handleViewAllExplore = () => router.push("/(tabs)/Frontend/Student/student_event");
+  const handleViewAllRegistered = () => router.push("/(tabs)/Frontend/Student/register");
 
-  const renderPoster = (event, size = "lg") => {
+  const renderPoster = (event, size = "lg", apiBase) => {
     const eventId = getEventId(event);
-    const registered = registeredIds.includes(eventId);
+    const posterUrl = event.basicInfo.poster.startsWith('http')
+      ? event.basicInfo.poster
+      : `${apiBase}/${event.basicInfo.poster.replace(/\\/g, "/")}`;
 
     return (
       <View
@@ -158,13 +151,13 @@ export default function StudentHome() {
           activeOpacity={0.9}
           onPress={() =>
             router.push({
-              pathname: "/(tabs)/Frontend/Student/student_event",
+              pathname: "/(tabs)/Frontend/Student/EventDetailsScreen",
               params: { eventId },
             })
           }
         >
           <ImageBackground
-            source={{ uri: event.basicInfo.poster }}
+            source={{ uri: posterUrl }}
             style={styles.posterImage}
             imageStyle={{ borderRadius: 16 }}
           />
@@ -174,7 +167,7 @@ export default function StudentHome() {
           style={styles.posterAction}
           onPress={() =>
             router.push({
-              pathname: "/(tabs)/Frontend/Student/student_event",
+              pathname: "/(tabs)/Frontend/Student/EventDetailsScreen",
               params: { eventId },
             })
           }
@@ -185,41 +178,46 @@ export default function StudentHome() {
     );
   };
 
-  const renderHorizontalList = (data, size) => (
+  const renderHorizontalList = (data, size, apiBase) => (
     <FlatList
       horizontal
       data={data}
       keyExtractor={(item, index) => getEventId(item) + index}
       showsHorizontalScrollIndicator={false}
-      renderItem={({ item }) => renderPoster(item, size)}
+      renderItem={({ item }) => renderPoster(item, size, apiBase)}
       contentContainerStyle={styles.horizontalList}
     />
   );
 
-  const renderRegisteredCard = (event) => (
-    <View style={styles.registeredCard} key={getEventId(event)}>
-      <ImageBackground
-        source={{ uri: event.basicInfo.poster }}
-        style={styles.registeredPoster}
-        imageStyle={{ borderRadius: 16 }}
-      />
+  const renderRegisteredCard = ({ item, apiBase }) => {
+    const { basicInfo, eventDetails } = item;
+    const posterUrl = basicInfo.poster.startsWith('http')
+      ? basicInfo.poster
+      : `${apiBase}/${basicInfo.poster.replace(/\\/g, "/")}`;
+    return (
+      <View style={styles.registeredCard} key={basicInfo._id}>
+        <ImageBackground
+          source={{ uri: posterUrl }}
+          style={styles.registeredPoster}
+          imageStyle={{ borderRadius: 16 }}
+        />
 
-      <View style={styles.registeredInfo}>
-        <Text style={styles.registeredTitle} numberOfLines={1}>
-          {event.basicInfo?.eventName}
-        </Text>
-        <Text style={styles.registeredMeta}>{event.basicInfo?.dept}</Text>
-        {event.eventDetails?.venue && (
-          <Text style={styles.registeredMeta}>
-            Venue: {event.eventDetails.venue}
+        <View style={styles.registeredInfo}>
+          <Text style={styles.registeredTitle} numberOfLines={1}>
+            {basicInfo?.eventName}
           </Text>
-        )}
-        {event.eventDetails?.startDate && (
-          <Text style={styles.registeredMeta}>
-            Date: {event.eventDetails.startDate}
-          </Text>
-        )}
-      </View>
+          <Text style={styles.registeredMeta}>{basicInfo?.dept}</Text>
+          {eventDetails?.venue && (
+            <Text style={styles.registeredMeta}>
+              Venue: {eventDetails.venue}
+            </Text>
+          )}
+          {eventDetails?.startDate && (
+            <Text style={styles.registeredMeta}>
+              Date: {new Date(eventDetails.startDate).toLocaleDateString()}
+            </Text>
+          )}
+        </View>
 
       <View style={styles.registeredRight}>
         <View style={styles.statusPill}>
@@ -230,22 +228,16 @@ export default function StudentHome() {
           style={styles.viewDetailsBtn}
           onPress={() =>
             router.push({
-              pathname: "/(tabs)/Frontend/Student/student_event",
-              params: { eventId: getEventId(event) },
+              pathname: "/(tabs)/Frontend/Student/EventDetailsScreen",
+              params: { eventId: basicInfo._id },
             })
           }
         >
           <Text style={styles.viewDetailsText}>View Details</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => handleToggleRegistration(getEventId(event))}
-        >
-          <Text style={styles.removeText}>Remove</Text>
-        </TouchableOpacity>
       </View>
     </View>
-  );
+  )};
 
   if (loading) {
     return (
@@ -269,10 +261,10 @@ export default function StudentHome() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <SectionHeader title="Upcoming Event" onPress={handleViewAll} />
-        {renderHorizontalList(upcomingEvents)}
+        <SectionHeader title="Upcoming Event" onPress={handleViewAllExplore} />
+        {renderHorizontalList(upcomingEvents, "lg", apiBase)}
 
-        <SectionHeader title="Your Registered Events" onPress={handleViewAll} />
+        <SectionHeader title="Your Registered Events" onPress={handleViewAllRegistered} />
         {registeredEvents.length === 0 ? (
           <View style={styles.emptyRegistered}>
             <Text style={styles.emptyRegisteredTitle}>
@@ -283,11 +275,16 @@ export default function StudentHome() {
             </Text>
           </View>
         ) : (
-          <View>{registeredEvents.map(renderRegisteredCard)}</View>
+          <FlatList
+            data={registeredEvents}
+            renderItem={({ item }) => renderRegisteredCard({ item, apiBase })}
+            keyExtractor={(item) => item.basicInfo._id}
+            scrollEnabled={false}
+          />
         )}
 
-        <SectionHeader title="Explore More Events" onPress={handleViewAll} />
-        {renderHorizontalList(exploreEvents, "sm")}
+        <SectionHeader title="Explore More Events" onPress={handleViewAllExplore} />
+        {renderHorizontalList(exploreEvents, "sm", apiBase)}
       </ScrollView>
 
       <BottomNavBar />
@@ -435,8 +432,6 @@ const styles = StyleSheet.create({
   },
 
   viewDetailsText: { color: "#fff", fontWeight: "700", fontSize: 12 },
-
-  removeText: { color: "#EE5A5A", fontSize: 11, fontWeight: "700", marginTop: 6 },
 
   emptyRegistered: {
     backgroundColor: "#fff",

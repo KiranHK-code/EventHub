@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Image,
   TouchableOpacity,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from "expo-constants";
 import BottomNavBar from '../components/navbar';
@@ -62,9 +62,12 @@ const RegisteredEventsScreen = () => {
     }
   };
 
-  useEffect(() => {
-    fetchRegisteredEvents();
-  }, []);
+  // This effect runs whenever the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchRegisteredEvents();
+    }, [])
+  );
 
   const handleViewDetails = (eventId) => {
     router.push({
@@ -73,12 +76,15 @@ const RegisteredEventsScreen = () => {
     });
   };
 
-  const renderEventItem = ({ item }) => {
+  const renderEventItem = ({ item, apiBase }) => {
     const { basicInfo, eventDetails } = item;
+    const posterUrl = basicInfo.poster.startsWith('http')
+      ? basicInfo.poster
+      : `${apiBase}/${basicInfo.poster.replace(/\\/g, "/")}`;
     return (
       <View style={styles.eventCard}>
         {basicInfo.poster ? (
-          <Image source={{ uri: basicInfo.poster }} style={styles.poster} />
+          <Image source={{ uri: posterUrl }} style={styles.poster} />
         ) : (
           <View style={[styles.poster, styles.posterPlaceholder]} />
         )}
@@ -117,7 +123,7 @@ const RegisteredEventsScreen = () => {
       </View>
       <FlatList
         data={registeredEvents}
-        renderItem={renderEventItem}
+        renderItem={({ item }) => renderEventItem({ item, apiBase })}
         keyExtractor={(item) => item.basicInfo._id}
         contentContainerStyle={styles.listContainer}
         ListEmptyComponent={
