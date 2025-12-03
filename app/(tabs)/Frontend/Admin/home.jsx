@@ -1,10 +1,32 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator } from "react-native";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Platform } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import BottomNavBar from "../components/navbar";
+import Constants from "expo-constants";
+
+const cleanUrl = (value) => {
+  if (!value) return null;
+  let url = value.trim();
+  if (!/^https?:\/\//.test(url)) { url = `http://${url}`; }
+  return url.replace(/\/$/, "");
+};
+
+const getBaseUrl = () => {
+  const envUrl = cleanUrl(process.env.EXPO_PUBLIC_API_BASE_URL);
+  if (envUrl) return envUrl;
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const host = hostUri.split(":")[0];
+    return `http://${host}:5000`;
+  }
+  if (Platform.OS === 'android') return "http://10.0.2.2:5000";
+  if (Platform.OS === 'ios') return "http://localhost:5000";
+  return "http://192.168.93.107:5000";
+};
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const apiBase = useMemo(() => getBaseUrl(), []);
   const [events, setEvents] = useState([]);
   const [approvedCount, setApprovedCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
@@ -12,7 +34,7 @@ export default function DashboardScreen() {
 
   const fetchEventsForReview = async () => {
     try {
-      const res = await fetch("http://192.168.93.107:5000/review");
+      const res = await fetch(`${apiBase}/review`);
       const data = await res.json();
       setEvents(data);
 
@@ -31,7 +53,7 @@ export default function DashboardScreen() {
 
   useFocusEffect(useCallback(() => {
     fetchEventsForReview();
-  }, []));
+  }, [apiBase]));
 
   return (
     <View style={{ flex: 1 }}>

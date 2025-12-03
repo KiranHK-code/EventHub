@@ -28,9 +28,8 @@ const getBaseUrl = () => {
 // In a real app, you would get this from your authentication context or secure storage.
 const getStudentId = async () => {
   // In a real app, you'd get this from AsyncStorage after login
-  // const studentData = await AsyncStorage.getItem('student_profile'); 
-  // return studentData ? JSON.parse(studentData)._id : null;
-  return '66549b3a58518b7617456360'; // Replace with a real student ID from your DB for testing
+  const studentData = await AsyncStorage.getItem('student_profile'); 
+  return studentData ? JSON.parse(studentData)._id : null;
 };
 
 const RegisteredEventsScreen = () => {
