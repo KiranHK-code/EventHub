@@ -244,7 +244,7 @@ export default function OrgProfile() {
         <Text style={styles.eventMeta}>Venue: {item.venue}</Text>
         <Text style={styles.eventMeta}>Date: {item.startDate ? new Date(item.startDate).toLocaleDateString() : 'TBD'}</Text>
         <Text style={styles.eventMeta}>Time: {item.startTime ? new Date(item.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'TBD'}</Text>
-        <TouchableOpacity style={styles.viewRegs}>
+        <TouchableOpacity style={styles.viewRegs} onPress={() => router.push({ pathname: "/(tabs)/Frontend/Organizer/org_register", params: { eventId: item._id } })}>
           <Text style={styles.viewRegsText}>View Registrations</Text>
         </TouchableOpacity>
       </View>
@@ -318,7 +318,7 @@ export default function OrgProfile() {
 
           <View style={styles.eventsHeaderRow}>
             <Text style={styles.sectionTitle}>My Events</Text>
-            <TouchableOpacity><Text style={styles.viewAll}>View All</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/(tabs)/Frontend/Organizer/all_events")}><Text style={styles.viewAll}>View All</Text></TouchableOpacity>
           </View>
 
           {loading ? (

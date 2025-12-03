@@ -146,7 +146,7 @@ export default function HomeScreen() {
                   <Text style={{ fontSize: 12, color: "#fff" }}>{item.status}</Text>
                 </View>
 
-                <TouchableOpacity style={styles.regBtn}>
+                <TouchableOpacity style={styles.regBtn} onPress={() => router.push({ pathname: '(tabs)/Frontend/Organizer/org_register', params: { eventId: item._id } })}>
                   <Text style={styles.regText}>View Registrations</Text>
                 </TouchableOpacity>
               </View>

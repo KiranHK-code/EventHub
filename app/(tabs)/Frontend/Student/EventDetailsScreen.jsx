@@ -31,8 +31,8 @@ const getStudentId = async () => {
   // In a real app, you'd get this from AsyncStorage after login
   const studentData = await AsyncStorage.getItem('student_profile');
   // Using a hardcoded ID for testing. Replace with the line above in production.
-  // return studentData ? JSON.parse(studentData)._id : null;
-  return '66549b3a58518b7617456360'; // Replace with a real student ID from your DB for testing
+  return studentData ? JSON.parse(studentData)._id : null;
+  // return '66549b3a58518b7617456360'; // Replace with a real student ID from your DB for testing
 };
 
 // This component displays event details for a student.

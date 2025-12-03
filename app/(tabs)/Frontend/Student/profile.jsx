@@ -49,7 +49,8 @@ const getBaseUrl = () => {
 };
 
 const getStudentId = async () => {
-  return '66549b3a58518b7617456360'; // Hardcoded for testing
+  const studentData = await AsyncStorage.getItem('student_profile');
+  return studentData ? JSON.parse(studentData)._id : null;
 };
 
 /* ------------------ Initial Profile Data & Events ------------------ */
@@ -298,8 +299,8 @@ export default function ProfileScreen() {
   }, []);
 
   const goBack = () => router.back();
-  const onViewAll = () => router.push("AllEvents"); 
-  const onViewDetails = useCallback((item) => router.push({ pathname: "EventDetails", params: { eventId: item.id } }), []);
+  const onViewAll = () => router.push("/(tabs)/Frontend/Student/register"); 
+  const onViewDetails = useCallback((item) => router.push({ pathname: "/(tabs)/Frontend/Student/EventDetailsScreen", params: { eventId: item.basicInfo._id } }), []);
 
   const onEdit = () => {
     router.push({

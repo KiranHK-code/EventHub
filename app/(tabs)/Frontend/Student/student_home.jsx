@@ -43,10 +43,12 @@ const getBaseUrl = () => {
   return "http://localhost:5000";
 };
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 // --- Helper to get Student ID ---
 const getStudentId = async () => {
-  // Using a hardcoded ID for testing. Replace with real logic in production.
-  return '66549b3a58518b7617456360';
+  const studentData = await AsyncStorage.getItem('student_profile');
+  return studentData ? JSON.parse(studentData)._id : null;
 };
 
 export default function StudentHome() {

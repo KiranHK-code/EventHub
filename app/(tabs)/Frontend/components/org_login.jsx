@@ -1,22 +1,43 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from "expo-constants";
+
+const cleanUrl = (value) => {
+  if (!value) return null;
+  let url = value.trim();
+  if (!/^https?:\/\//.test(url)) { url = `http://${url}`; }
+  return url.replace(/\/$/, "");
+};
+
+const getBaseUrl = () => {
+  const envUrl = cleanUrl(process.env.EXPO_PUBLIC_API_BASE_URL);
+  if (envUrl) return envUrl;
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const host = hostUri.split(":")[0];
+    return `http://${host}:5000`;
+  }
+  if (Platform.OS === 'android') return "http://10.0.2.2:5000";
+  if (Platform.OS === 'ios') return "http://localhost:5000";
+  return "http://192.168.93.107:5000";
+};
 
 export default function OrgLogin() {
   const router = useRouter();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const apiBase = useMemo(() => getBaseUrl(), []);
 
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'All fields are required!');
       return;
     }
-
     try {
-      const response = await fetch('http://192.168.93.107:5000/api/organizers/login', {
+      const response = await fetch(`${apiBase}/api/organizers/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,10 +1,9 @@
 // ProfileScreen.js
 // Plain JSX React Native component (Expo-friendly).
-// - Uses blank placeholders for images
 // - Shows profile header, info cards, contact details, approved events list
 // - Many sample events so the approved events section is scrollable
 
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useMemo} from 'react';
 import {useRouter, useLocalSearchParams, useFocusEffect} from 'expo-router';
 import {
   SafeAreaView,
@@ -20,10 +19,33 @@ import {
 } from 'react-native';
 import BottomNavBar from "../components/navbar";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
+import Constants from "expo-constants";
+
+const cleanUrl = (value) => {
+  if (!value) return null;
+  let url = value.trim();
+  if (!/^https?:\/\//.test(url)) { url = `http://${url}`; }
+  return url.replace(/\/$/, "");
+};
+
+const getBaseUrl = () => {
+  const envUrl = cleanUrl(process.env.EXPO_PUBLIC_API_BASE_URL);
+  if (envUrl) return envUrl;
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const host = hostUri.split(":")[0];
+    return `http://${host}:5000`;
+  }
+  if (Platform.OS === 'android') return "http://10.0.2.2:5000";
+  if (Platform.OS === 'ios') return "http://localhost:5000";
+  return "http://192.168.93.107:5000";
+};
 
 export default function ProfileScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const apiBase = useMemo(() => getBaseUrl(), []);
+
   const [profile, setProfile] = useState({
     name: '',
     role: 'Admin',
@@ -66,7 +88,7 @@ export default function ProfileScreen() {
 
   const fetchApprovedEvents = useCallback(async () => {
     try {
-      const res = await fetch("http://192.168.93.107:5000/review");
+      const res = await fetch(`${apiBase}/review`);
       const allEvents = await res.json();
       if (Array.isArray(allEvents)) {
         // Filter for events that have the status 'approved'
@@ -75,7 +97,7 @@ export default function ProfileScreen() {
     } catch (err) {
       console.error("Failed to fetch approved events:", err);
     }
-  }, []);
+  }, [apiBase]);
 
   // Accept updated profile passed back from the edit screen and persist it
   useEffect(() => {
@@ -282,7 +304,7 @@ export default function ProfileScreen() {
                   <Text style={styles.eventMeta}>Date: {event.eventDetails.startDate ? new Date(event.eventDetails.startDate).toLocaleDateString() : 'N/A'}</Text>
                   <Text style={styles.eventMeta}>Time: {event.eventDetails.startTime || 'N/A'}</Text>
                 </View>
-                <TouchableOpacity style={styles.viewButton} accessibilityRole="button">
+                <TouchableOpacity style={styles.viewButton} accessibilityRole="button" onPress={()=>router.push("/(tabs)/Frontend/Admin/admin_register",{eventId:event.basicInfo._id})}>
                   <Text style={styles.viewButtonText}>View Registrations</Text>
                 </TouchableOpacity>
               </View>

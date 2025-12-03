@@ -1,21 +1,41 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Dimensions, ActivityIndicator, TouchableOpacity, Alert, FlatList } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, Text, ScrollView, StyleSheet, Dimensions, ActivityIndicator, TouchableOpacity, Alert, FlatList, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import BottomNavBar from '../components/navbar';
+import Constants from "expo-constants";
 
-const API_BASE_URL = "http://192.168.93.107:5000";
+const cleanUrl = (value) => {
+  if (!value) return null;
+  let url = value.trim();
+  if (!/^https?:\/\//.test(url)) { url = `http://${url}`; }
+  return url.replace(/\/$/, "");
+};
+
+const getBaseUrl = () => {
+  const envUrl = cleanUrl(process.env.EXPO_PUBLIC_API_BASE_URL);
+  if (envUrl) return envUrl;
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const host = hostUri.split(":")[0];
+    return `http://${host}:5000`;
+  }
+  if (Platform.OS === 'android') return "http://10.0.2.2:5000";
+  if (Platform.OS === 'ios') return "http://localhost:5000";
+  return "http://192.168.93.107:5000";
+};
 
 export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
+  const apiBase = useMemo(() => getBaseUrl(), []);
 
   useEffect(() => {
     fetchNotifications();
     // Poll for new notifications every 5 seconds
     const interval = setInterval(fetchNotifications, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [apiBase]);
 
   // Helper to show relative time like "2 min ago", "1 hour ago"
   const timeAgo = (isoDate) => {
@@ -40,7 +60,7 @@ export default function NotificationsScreen() {
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin-notifications`);
+      const res = await fetch(`${apiBase}/admin-notifications`);
       if (!res.ok) {
         console.warn('Notifications endpoint returned', res.status);
         setNotifications([]);
@@ -77,7 +97,7 @@ export default function NotificationsScreen() {
 
   const markAsRead = async (notificationId) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/notifications/${notificationId}/read`, {
+      const res = await fetch(`${apiBase}/notifications/${notificationId}/read`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" }
       });

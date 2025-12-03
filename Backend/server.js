@@ -102,6 +102,7 @@ const StudentEventRegistrationSchema = new mongoose.Schema({
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
   eventId: { type: mongoose.Schema.Types.ObjectId, ref: 'BasicInfo', required: true },
   registrationDate: { type: Date, default: Date.now },
+  status: { type: String, enum: ['Registered', 'Checked-In'], default: 'Registered' },
 }, { timestamps: true });
 
 // Add a unique index to prevent a student from registering for the same event twice
@@ -673,6 +674,79 @@ app.get("/api/students/:studentId/registered-events", async (req, res) => {
   }
 });
 
+// --------- GET REGISTRATIONS FOR A SINGLE EVENT (for Organizer View) ----------
+app.get("/api/events/:eventId/registrations", async (req, res) => {
+  try {
+    const { eventId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      return res.status(400).json({ success: false, error: "Invalid Event ID" });
+    }
+
+    // 1. Find the main event details from BasicInfo
+    const basicInfo = await BasicInfo.findById(eventId).populate('organizerId', 'name');
+    if (!basicInfo) {
+      return res.status(404).json({ success: false, error: "Event not found" });
+    }
+
+    // 2. Find the registration configuration details (like participant limit)
+    const registrationConfig = await Registration.findOne({ eventId: eventId });
+
+    // 3. Find all student registrations for this event and populate student details
+    const studentRegistrations = await StudentEventRegistration.find({ eventId: eventId })
+      .populate({
+        path: 'studentId',
+        select: 'name usn department', // Select only the fields you need
+        model: 'Student' // This line is crucial for the fix
+      });
+
+    // 4. Combine the data into the format expected by the frontend
+    const responseData = {
+      success: true,
+      event: {
+        eventName: basicInfo.eventName,
+        organizerName: basicInfo.organizerId ? basicInfo.organizerId.name : 'N/A',
+        eventDetails: {
+          participants: registrationConfig ? registrationConfig.participants : 'N/A'
+        }
+      },
+      registrations: studentRegistrations
+    };
+
+    res.json(responseData);
+
+  } catch (err) {
+    console.error(`❌ /api/events/${req.params.eventId}/registrations error:`, err.message);
+    res.status(500).json({ success: false, error: "Internal Server Error" });
+  }
+});
+
+// --------- CHECK-IN STUDENT FOR AN EVENT ----------
+app.put("/api/registrations/:registrationId/checkin", async (req, res) => {
+  try {
+    const { registrationId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(registrationId)) {
+      return res.status(400).json({ success: false, message: "Invalid Registration ID." });
+    }
+
+    const updatedRegistration = await StudentEventRegistration.findByIdAndUpdate(
+      registrationId,
+      { status: 'Checked-In' },
+      { new: true } // Return the updated document
+    );
+
+    if (!updatedRegistration) {
+      return res.status(404).json({ success: false, message: "Registration not found." });
+    }
+
+    res.status(200).json({ success: true, message: "Student checked in successfully.", registration: updatedRegistration });
+
+  } catch (err) {
+    console.error(`❌ /api/registrations/${req.params.registrationId}/checkin error:`, err.message);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+});
 
 // ---------------------------------------------------------
 app.listen(5000, () => console.log("Server running on port 5000"));

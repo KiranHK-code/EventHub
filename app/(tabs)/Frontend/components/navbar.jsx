@@ -12,7 +12,7 @@ export default function BottomNavBar() {
       { name: "Home", icon: "home", route: "/(tabs)/Frontend/Organizer/home" },
       { name: "Events", icon: "event", route: "/(tabs)/Frontend/Organizer/all_events" },
       { name: "Alerts", icon: "notifications", route: "/(tabs)/Frontend/Organizer/alert" },
-      { name: "Register", icon: "app-registration", route: "Register" },
+      { name: "Register", icon: "app-registration", route: "/(tabs)/Frontend/Organizer/org_register" }, // Example route
       { name: "Profile", icon: "person", route: "/(tabs)/Frontend/Organizer/org_profile" },
     ],
     student: [
@@ -26,7 +26,7 @@ export default function BottomNavBar() {
       { name: "Home", icon: "home", route: "/(tabs)/Frontend/Admin/home" },
       { name: "Events", icon: "event", route: "/(tabs)/Frontend/Admin/review" },
       { name: "Alerts", icon: "notifications", route: "/(tabs)/Frontend/Admin/alert" },
-      { name: "Register", icon: "app-registration", route: "/(tabs)/Frontend/Admin/Edit_profil" },
+      { name: "Register", icon: "app-registration", route: "/(tabs)/Frontend/Admin/admin_register" },
       { name: "Profile", icon: "person", route: "/(tabs)/Frontend/Admin/profile1" },
     ],
   };
