@@ -143,7 +143,7 @@ export default function Review() {
             <View key={index} style={styles.card}>
               <View style={styles.headerRow}>
                 {item.basicInfo?.poster ? (
-                  <ImageBackground source={{ uri: item.basicInfo.poster }} style={styles.poster} imageStyle={{ borderRadius: 12 }} />
+                  <ImageBackground source={{ uri: `${item.basicInfo.poster.replace(/\\/g, '/')}` }} style={styles.poster} imageStyle={{ borderRadius: 12 }} />
                 ) : null}
                 <View style={styles.headerText}>
                   <Text style={styles.eventTitle}>{item.basicInfo?.eventName}</Text>
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
   },
   approveBtn: { backgroundColor: "#4CAF50" },
   rejectBtn: { backgroundColor: "#F44336" },
-  reviewBtn: { backgroundColor: "#E6E6E6" },
+  reviewBtn: { backgroundColor: "#121120ff" },
   buttonText: {
     color: "#fff",
     fontWeight: "700",

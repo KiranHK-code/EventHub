@@ -101,15 +101,15 @@ export default function DashboardScreen() {
           <ActivityIndicator size="large" color="#7B57F3" style={{ marginTop: 20 }} />
         ) : (
           events.filter(item => item.basicInfo?.status === 'pending').map((item) => (
-            <View key={item.basicInfo._id} style={styles.eventCard}>
-              {item.basicInfo.poster && (
+            <View key={item.basicInfo?._id} style={styles.eventCard}>
+              {item.basicInfo?.poster && (
                 <Image 
                   source={{ uri: item.basicInfo.poster }} 
                   style={styles.eventImg} 
                 />
               )}
 
-              <View style={{ flex: 1, marginLeft: item.basicInfo.poster ? 10 : 0 }}>
+              <View style={{ flex: 1, marginLeft: item.basicInfo?.poster ? 10 : 0 }}>
                 <Text style={styles.eventTitle}>New Event: “{item.basicInfo.eventName}”</Text>
                 <Text style={styles.eventBy}>Dept: {item.basicInfo.dept}</Text>
                 <Text style={styles.eventDate}>

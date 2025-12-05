@@ -128,7 +128,7 @@ export default function StudentEvent() {
   const renderEventCard = ({ item }) => (
     <View style={styles.eventCard}>
       <ImageBackground
-        source={{ uri: item.basicInfo.poster }}
+        source={{ uri: `${item.basicInfo.poster.replace(/\\/g, '/')}` }}
         style={styles.cardPoster}
         imageStyle={{ borderRadius: 16 }}
       />

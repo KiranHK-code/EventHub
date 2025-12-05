@@ -13,6 +13,7 @@ import {
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useRouter, useFocusEffect } from "expo-router";
 import BottomNavBar from "../components/navbar";
+import RegisteredEventCard from "../components/RegisteredEventCard";
 import Constants from "expo-constants";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -138,9 +139,9 @@ export default function StudentHome() {
 
   const renderPoster = (event, size = "lg", apiBase) => {
     const eventId = getEventId(event);
-    const posterUrl = event.basicInfo.poster.startsWith('http')
-      ? event.basicInfo.poster
-      : `${apiBase}/${event.basicInfo.poster.replace(/\\/g, "/")}`;
+    const posterPath = event.basicInfo.poster.replace(/\\/g, "/");
+    const posterUrl = posterPath.startsWith('http')
+      ? posterPath : `${posterPath}`;
 
     return (
       <View
@@ -159,7 +160,7 @@ export default function StudentHome() {
           }
         >
           <ImageBackground
-            source={{ uri: posterUrl }}
+            source={{ uri:posterUrl }}
             style={styles.posterImage}
             imageStyle={{ borderRadius: 16 }}
           />
@@ -190,56 +191,6 @@ export default function StudentHome() {
       contentContainerStyle={styles.horizontalList}
     />
   );
-
-  const renderRegisteredCard = ({ item, apiBase }) => {
-    const { basicInfo, eventDetails } = item;
-    const posterUrl = basicInfo.poster.startsWith('http')
-      ? basicInfo.poster
-      : `${apiBase}/${basicInfo.poster.replace(/\\/g, "/")}`;
-    return (
-      <View style={styles.registeredCard} key={basicInfo._id}>
-        <ImageBackground
-          source={{ uri: posterUrl }}
-          style={styles.registeredPoster}
-          imageStyle={{ borderRadius: 16 }}
-        />
-
-        <View style={styles.registeredInfo}>
-          <Text style={styles.registeredTitle} numberOfLines={1}>
-            {basicInfo?.eventName}
-          </Text>
-          <Text style={styles.registeredMeta}>{basicInfo?.dept}</Text>
-          {eventDetails?.venue && (
-            <Text style={styles.registeredMeta}>
-              Venue: {eventDetails.venue}
-            </Text>
-          )}
-          {eventDetails?.startDate && (
-            <Text style={styles.registeredMeta}>
-              Date: {new Date(eventDetails.startDate).toLocaleDateString()}
-            </Text>
-          )}
-        </View>
-
-      <View style={styles.registeredRight}>
-        <View style={styles.statusPill}>
-          <Text style={styles.statusPillText}>Registered</Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.viewDetailsBtn}
-          onPress={() =>
-            router.push({
-              pathname: "/(tabs)/Frontend/Student/EventDetailsScreen",
-              params: { eventId: basicInfo._id },
-            })
-          }
-        >
-          <Text style={styles.viewDetailsText}>View Details</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  )};
 
   if (loading) {
     return (
@@ -279,7 +230,7 @@ export default function StudentHome() {
         ) : (
           <FlatList
             data={registeredEvents}
-            renderItem={({ item }) => renderRegisteredCard({ item, apiBase })}
+            renderItem={({ item }) => <RegisteredEventCard item={item} apiBase={apiBase} />}
             keyExtractor={(item) => item.basicInfo._id}
             scrollEnabled={false}
           />
@@ -390,50 +341,6 @@ const styles = StyleSheet.create({
     paddingRight: 4,
     paddingBottom: 6,
   },
-
-  registeredCard: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 12,
-    alignItems: "center",
-    marginBottom: 16,
-    elevation: 3,
-  },
-
-  registeredPoster: {
-    width: 80,
-    height: 100,
-    borderRadius: 16,
-    backgroundColor: "#eee",
-  },
-
-  registeredInfo: { flex: 1, paddingHorizontal: 12 },
-
-  registeredTitle: { color: "#120E21", fontSize: 17, fontWeight: "800" },
-
-  registeredMeta: { color: "#4F4B61", fontSize: 13, marginTop: 4 },
-
-  registeredRight: { alignItems: "flex-end" },
-
-  statusPill: {
-    backgroundColor: "#DFF9EB",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 999,
-    marginBottom: 8,
-  },
-
-  statusPillText: { color: "#1C8C56", fontWeight: "700", fontSize: 11 },
-
-  viewDetailsBtn: {
-    backgroundColor: "#8562FF",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 14,
-  },
-
-  viewDetailsText: { color: "#fff", fontWeight: "700", fontSize: 12 },
 
   emptyRegistered: {
     backgroundColor: "#fff",

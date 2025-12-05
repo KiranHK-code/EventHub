@@ -288,7 +288,7 @@ export default function ProfileScreen() {
         {approvedEvents.map((event) => (
           <View key={event.basicInfo._id} style={[styles.eventCard, styles.smallCardShadow]}>
             <View style={styles.cardRow}>
-              {event.basicInfo.poster ? (
+              {event.basicInfo?.poster ? (
                 <Image 
                   source={{ uri: event.basicInfo.poster }} 
                   style={styles.eventThumb} 

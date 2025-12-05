@@ -230,10 +230,10 @@ export default function OrgProfile() {
     );
   };
 
-  const renderEvent = ({ item }) => (
+  const renderEvent = ({ item, apiBase }) => (
     <View style={styles.eventCard} key={item._id}>
       <View style={styles.eventImageContainer}>
-        <Image source={item.image ? { uri: item.image } : require('../../../../assets/images/icon.png')} style={styles.eventImageStyle} />
+        <Image source={item.image ? { uri: `${item.image}` } : require('../../../../assets/images/icon.png')} style={styles.eventImageStyle} />
       </View>
 
       <View style={styles.eventRight}>
@@ -244,14 +244,29 @@ export default function OrgProfile() {
         <Text style={styles.eventMeta}>Venue: {item.venue}</Text>
         <Text style={styles.eventMeta}>Date: {item.startDate ? new Date(item.startDate).toLocaleDateString() : 'TBD'}</Text>
         <Text style={styles.eventMeta}>Time: {item.startTime ? new Date(item.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'TBD'}</Text>
-        <TouchableOpacity style={styles.viewRegs} onPress={() => router.push({ pathname: "/(tabs)/Frontend/Organizer/org_register", params: { eventId: item._id } })}>
-          <Text style={styles.viewRegsText}>View Registrations</Text>
-        </TouchableOpacity>
+        {item.status === 'Approved' && (
+          <TouchableOpacity style={styles.viewRegs} onPress={() => router.push({ pathname: "/(tabs)/Frontend/Organizer/org_register", params: { eventId: item._id } })}>
+            <Text style={styles.viewRegsText}>View Registrations</Text>
+          </TouchableOpacity>
+        )}
+        {item.status === 'Rejected' && item.rejectionReason && (
+          <Text style={styles.rejectionReasonText}>Reason: {item.rejectionReason}</Text>
+        )}
       </View>
 
-      <View style={styles.activeBadgeFloating}>
-        <Text style={styles.activeBadgeText}>Active</Text>
-      </View>
+      {item.status === 'Approved' ? (
+        <View style={[styles.statusBadgeFloating, styles.activeBadgeFloating]}>
+          <Text style={styles.statusBadgeText}>Active</Text>
+        </View>
+      ) : item.status === 'Pending' ? (
+        <View style={[styles.statusBadgeFloating, styles.pendingBadgeFloating]}>
+          <Text style={styles.statusBadgeText}>Pending</Text>
+        </View>
+      ) : item.status === 'Rejected' ? (
+        <View style={[styles.statusBadgeFloating, styles.rejectedBadgeFloating]}>
+          <Text style={styles.statusBadgeText}>Rejected</Text>
+        </View>
+      ) : null}
     </View>
   );
 
@@ -326,7 +341,7 @@ export default function OrgProfile() {
           ) : events.length > 0 ? (
             events.map((ev) => (
               <View key={ev._id} style={{ marginBottom: 12 }}>
-                {renderEvent({ item: ev })}
+                {renderEvent({ item: ev, apiBase: apiBase })}
               </View>
             ))
           ) : (
@@ -480,19 +495,33 @@ const styles = StyleSheet.create({
   eventDept: { marginTop: 6, fontWeight: "600", color: "#333" },
   eventDate: { color: '#666', marginTop: 6 },
   eventMeta: { fontSize: 11, color: "#666", marginTop: 2 },
-  activeBadgeFloating: {
+  statusBadgeFloating: {
     position: 'absolute',
     top: 12,
     right: 12,
-    backgroundColor: '#28C76F',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  activeBadgeText: { color: '#fff', fontWeight: '700', fontSize: 12 },
+  statusBadgeText: { color: '#fff', fontWeight: '700', fontSize: 12 },
+  activeBadgeFloating: {
+    backgroundColor: '#28C76F', // green
+  },
+  pendingBadgeFloating: {
+    backgroundColor: '#ffc107', // yellow
+  },
+  rejectedBadgeFloating: {
+    backgroundColor: '#dc3545', // red
+  },
 
   viewRegs: { backgroundColor: '#6f52ff', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, alignSelf: 'flex-end' },
   viewRegsText: { color: '#fff', fontWeight: '700' },
+  rejectionReasonText: {
+    marginTop: 8,
+    color: '#dc3545',
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import OrganizerNavbar from "../components/navbar";
 
 // --- Helper functions to get the API URL (same as in your other files) ---
 const cleanUrl = (value) => {
@@ -93,7 +94,7 @@ export default function HomeScreen() {
         <Text style={styles.headerText}>Hello Organizer!</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
         {/* Stats Section */}
         <View style={styles.statsRow}>
@@ -133,62 +134,50 @@ export default function HomeScreen() {
         {/* Upcoming Events */}
         <Text style={styles.title}>Your Upcoming Events</Text>
 
-        {events.map((item) => (
-          <View key={item._id} style={styles.eventCard}>
-            <Image source={item.image ? { uri: apiBase +item.image } : require('../../../../assets/images/icon.png')} style={styles.eventImage} />
+        {events.length > 0 ? (
+          events.map((item) => (
+            <View key={item._id} style={styles.eventCard}>
+              <Image source={item.image ? { uri: `${item.image.replace(/\\/g, '/')}` } : require('../../../../assets/images/icon.png')} style={styles.eventImage} />
 
-            <View style={{ flex: 1, paddingLeft: 10 }}>
-              <Text style={styles.eventTitle}>{item.title}</Text>
-              <Text style={styles.eventDate}>{item.startDate ? new Date(item.startDate).toLocaleDateString() : 'Date TBD'}</Text>
+              <View style={{ flex: 1, paddingLeft: 10 }}>
+                <Text style={styles.eventTitle}>{item.title}</Text>
+                <Text style={styles.eventDate}>{item.startDate ? new Date(item.startDate).toLocaleDateString() : 'Date TBD'}</Text>
 
-              <View style={{ flexDirection: "row", alignItems: "center", marginTop: 5 }}>
-                <View style={item.status === 'Approved' ? styles.approvedBadge : styles.pendingBadge}>
-                  <Text style={{ fontSize: 12, color: "#fff" }}>{item.status}</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", marginTop: 5 }}>
+                  <View style={
+                    item.status === 'Approved'
+                      ? styles.approvedBadge
+                      : item.status === 'Rejected'
+                      ? styles.rejectedBadge
+                      : styles.pendingBadge
+                  }>
+                    <Text style={{ fontSize: 12, color: "#fff" }}>{item.status}</Text>
+                  </View>
+
+                  {item.status === 'Approved' && (
+                    <TouchableOpacity style={styles.regBtn} onPress={() => router.push({ pathname: '(tabs)/Frontend/Organizer/org_register', params: { eventId: item._id } })}>
+                      <Text style={styles.regText}>View Registrations</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
-
-                <TouchableOpacity style={styles.regBtn} onPress={() => router.push({ pathname: '(tabs)/Frontend/Organizer/org_register', params: { eventId: item._id } })}>
-                  <Text style={styles.regText}>View Registrations</Text>
-                </TouchableOpacity>
               </View>
             </View>
-          </View>
-        ))}
+          ))
+        ) : (
+          <Text style={styles.emptyText}>You have no upcoming events.</Text>
+        )}
 
       </ScrollView>
 
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNav}> 
-        <TouchableOpacity style={styles.navItem} onPress={() => router.replace('(tabs)/Frontend/Organizer/home')}>
-          <Ionicons name="home" size={26} color="#5A48FF" />
-          <Text style={styles.navLabelActive}>Home</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.navItem} onPress={() => router.replace('(tabs)/Frontend/Organizer/all_events')}>
-          <Ionicons name="calendar" size={26} color="#999" />
-          <Text style={styles.navLabel}>Events</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.navItem} onPress={() => router.replace('(tabs)/Frontend/Organizer/alert')}>
-          <Ionicons name="notifications" size={26} color="#999" />
-          <Text style={styles.navLabel}>Alerts</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.navItem} onPress={() => {}}>
-          <Ionicons name="people" size={26} color="#999" />
-          <Text style={styles.navLabel}>Registers</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.navItem} onPress={() => router.replace('(tabs)/Frontend/Organizer/org_profile')}>
-          <Ionicons name="person" size={26} color="#999" />
-          <Text style={styles.navLabel}>Profile</Text>
-        </TouchableOpacity>
-      </View>
-
+      <OrganizerNavbar />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    paddingBottom: 100, // Adds space at the bottom to avoid being hidden by the navbar
+  },
   header: {
     backgroundColor: "#000",
     flexDirection: "row",
@@ -300,31 +289,29 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 10,
   },
+  rejectedBadge: {
+    backgroundColor: "#dc3545", 
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
   regBtn: {
     backgroundColor: "#5A48FF",
     marginLeft: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 10,
+    justifyContent: 'center',
   },
   regText: {
     color: "#fff",
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '600',
   },
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    width: "100%",
-    backgroundColor: "#fff",
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderColor: "#ddd",
+  emptyText: {
+    textAlign: 'center',
+    color: '#888',
+    marginTop: 20,
+    marginBottom: 20,
   },
-  navItem: {
-    alignItems: "center",
-  },
-  navLabel: { fontSize: 12, color: "#999" },
-  navLabelActive: { fontSize: 12, color: "#5A48FF", fontWeight: "700" },
 });

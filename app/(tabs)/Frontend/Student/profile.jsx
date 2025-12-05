@@ -129,7 +129,7 @@ const RegisteredBadge = () => (
 const EventItem = memo(({ item, onPress, apiBase }) => {
   const posterUrl = item.basicInfo.poster.startsWith('http')
     ? item.basicInfo.poster
-    : `${apiBase}/${item.basicInfo.poster.replace(/\\/g, "/")}`;
+    : `${item.basicInfo.poster.replace(/\\/g, "/")}`;
 
   return (
     <View style={styles.eventCard}>

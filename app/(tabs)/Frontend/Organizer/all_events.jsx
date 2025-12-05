@@ -44,7 +44,7 @@ const getBaseUrl = () => {
 };
 // --- End of helper functions ---
 
-const EventCard = ({ item }) => {
+const EventCard = ({ item, apiBase, router }) => {
   const getStatusBadge = () => {
     switch (item.status) {
       case "Approved":
@@ -58,9 +58,18 @@ const EventCard = ({ item }) => {
     }
   };
 
+  const handlePress = () => {
+    if (item.status === 'Approved') {
+      router.push({ pathname: '(tabs)/Frontend/Organizer/org_register', params: { eventId: item._id } });
+    }
+    if (item.status === 'Rejected') {
+      router.push({ pathname: '(tabs)/Frontend/Organizer/feedback', params: { eventId: item._id } });
+    }
+  };
+
   return (
     <View style={styles.eventCard}>
-      <Image source={item.image ? { uri: item.image } : require('../../../../assets/images/icon.png')} style={styles.eventImage} />
+      <Image source={item.image ? { uri: `${item.image.replace(/\\/g, '/')}` } : require('../../../../assets/images/icon.png')} style={styles.eventImage} />
       <View style={styles.eventDetails}>
         <Text style={styles.eventTitle}>{item.title}</Text>
         <Text style={styles.eventDate}>{item.startDate ? new Date(item.startDate).toLocaleDateString() : 'Date not set'}</Text>
@@ -70,7 +79,7 @@ const EventCard = ({ item }) => {
         )}
       </View>
       {item.status !== 'Pending' && (
-        <TouchableOpacity style={styles.viewDetailsBtn}>
+        <TouchableOpacity style={styles.viewDetailsBtn} onPress={handlePress}>
           <Ionicons name="arrow-forward" size={20} color="#5A48FF" />
         </TouchableOpacity>
       )}
@@ -148,7 +157,7 @@ export default function AllEventsScreen() {
           {/* Section 1: Your Events (Approved) */}
           <Text style={styles.sectionTitle}>Your Events</Text>
           {approved.length > 0 ? (
-            approved.map(item => <EventCard key={item._id} item={item} />)
+            approved.map(item => <EventCard key={item._id} item={item} apiBase={apiBase} router={router} />)
           ) : (
             <Text style={styles.emptyText}>No approved events yet.</Text>
           )}
@@ -156,7 +165,7 @@ export default function AllEventsScreen() {
           {/* Section 2: Pending Events */}
           <Text style={styles.sectionTitle}>Pending Events</Text>
           {pending.length > 0 ? (
-            pending.map(item => <EventCard key={item._id} item={item} />)
+            pending.map(item => <EventCard key={item._id} item={item} apiBase={apiBase} router={router} />)
           ) : (
             <Text style={styles.emptyText}>No events are pending approval.</Text>
           )}
@@ -164,7 +173,7 @@ export default function AllEventsScreen() {
           {/* Section 3: Rejected Events */}
           <Text style={styles.sectionTitle}>Rejected Events</Text>
           {rejected.length > 0 ? (
-            rejected.map(item => <EventCard key={item._id} item={item} />)
+            rejected.map(item => <EventCard key={item._id} item={item} apiBase={apiBase} router={router} />)
           ) : (
             <Text style={styles.emptyText}>You have no rejected events.</Text>
           )}
