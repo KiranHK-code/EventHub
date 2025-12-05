@@ -138,7 +138,7 @@ export default function EventDetailsScreen() {
 
       {!loading && event && (
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          {basicInfo.poster && <Image source={{ uri: basicInfo.poster }} style={styles.poster} />}
+          {basicInfo.poster && <Image source={{ uri: `${basicInfo.poster.replace(/\\/g, '/')}` }} style={styles.poster} />}
           <Text style={styles.title}>{basicInfo.eventName || 'Event Name'}</Text>
           <Text style={styles.department}>{basicInfo.dept || 'Department'}</Text>
           <Text style={styles.description}>{basicInfo.description || 'No description available.'}</Text>

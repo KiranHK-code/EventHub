@@ -30,6 +30,7 @@ const BasicInfoSchema = new mongoose.Schema(
     organizerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organizer', required: true },
     poster: { type: String },
     status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+    rejectionReason: { type: String },
   },
   { timestamps: true }
 );
@@ -329,7 +330,7 @@ app.get("/event-details/:eventId", async (req, res) => {
     // Construct the full URL for the poster
     const basicInfoObject = basic.toObject();
     if (basicInfoObject.poster) {
-      basicInfoObject.poster = `${req.protocol}://${req.get('host')}${basicInfoObject.poster.startsWith('/') ? '' : '/'}${basicInfoObject.poster.replace(/\\/g, "/")}`;
+      basicInfoObject.poster = basicInfoObject.poster.replace(/\\/g, "/");
     }
 
     const combined = {
@@ -467,8 +468,8 @@ app.get("/organizer-events", async (req, res) => {
 
     const events = await Promise.all(
       basicInfos.map(async (basic) => {
-        // Construct the full URL for the poster
-        const posterUrl = basic.poster ? `${req.protocol}://${req.get('host')}${basic.poster.startsWith('/') ? '' : '/'}${basic.poster}` : null;
+        // Just send the relative path, client will construct the full URL
+        const posterPath = basic.poster ? basic.poster.replace(/\\/g, "/") : null;
 
         const registration = await Registration.findOne({ eventId: basic._id });
         return {
@@ -476,7 +477,7 @@ app.get("/organizer-events", async (req, res) => {
           // Details from BasicInfo
           title: basic.eventName,
           dept: basic.dept,
-          image: posterUrl,
+          image: posterPath, // Send the relative path
           status: basic.status.charAt(0).toUpperCase() + basic.status.slice(1), // Capitalize status (e.g., 'pending' -> 'Pending')
           reason: basic.rejectionReason || null, // Assuming you might add a rejection reason field
           // Details from Registration
@@ -528,7 +529,7 @@ app.get("/organizer-notifications", async (req, res) => {
 app.put("/review/:eventId", async (req, res) => {
   try {
     const { eventId } = req.params;
-    const { status } = req.body;
+    const { status, rejectionReason } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(eventId)) {
       return res.status(400).json({
@@ -544,9 +545,16 @@ app.put("/review/:eventId", async (req, res) => {
       });
     }
 
+    const updateData = { status };
+    if (status === 'rejected') {
+      updateData.rejectionReason = rejectionReason;
+    } else {
+      updateData.rejectionReason = null;
+    }
+
     const updated = await BasicInfo.findByIdAndUpdate(
       eventId,
-      { status },
+      updateData,
       { new: true }
     );
 
@@ -655,8 +663,7 @@ app.get("/api/students/:studentId/registered-events", async (req, res) => {
 
         // Construct the full URL for the poster
         if (basicInfoObject.poster) {
-          const posterPath = basicInfoObject.poster.replace(/\\/g, "/");
-          basicInfoObject.poster = `${req.protocol}://${req.get('host')}${posterPath.startsWith('/') ? '' : '/'}${posterPath}`;
+          basicInfoObject.poster = basicInfoObject.poster.replace(/\\/g, "/");
         }
 
         return {

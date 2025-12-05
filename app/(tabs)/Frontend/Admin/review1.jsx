@@ -1,9 +1,30 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo} from 'react';
 import { View, Text, ScrollView, Image, StyleSheet, Dimensions, ActivityIndicator, TouchableOpacity, Alert, Modal, TextInput, SafeAreaView, StatusBar, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import BottomNavBar from '../components/navbar';
+import Constants from "expo-constants";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const cleanUrl = (value) => {
+  if (!value) return null;
+  let url = value.trim();
+  if (!/^https?:\/\//.test(url)) { url = `http://${url}`; }
+  return url.replace(/\/$/, "");
+};
+
+const getBaseUrl = () => {
+  const envUrl = cleanUrl(process.env.EXPO_PUBLIC_API_BASE_URL);
+  if (envUrl) return envUrl;
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const host = hostUri.split(":")[0];
+    return `http://${host}:5000`;
+  }
+  if (Platform.OS === 'android') return "http://10.0.2.2:5000";
+  if (Platform.OS === 'ios') return "http://localhost:5000";
+  return "http://192.168.93.107:5000";
+};
 
 export default function ReviewDetails() {
 	const [data, setData] = useState(null);
@@ -11,6 +32,7 @@ export default function ReviewDetails() {
 	const [showRejectModal, setShowRejectModal] = useState(false);
 	const [rejectReason, setRejectReason] = useState("");
 	const params = useLocalSearchParams();
+	const apiBase = useMemo(() => getBaseUrl(), []);
 
 	useEffect(() => {
 		if (params.id) {
@@ -22,7 +44,7 @@ export default function ReviewDetails() {
 
 	const handleApprove = async () => {
 		try {
-			const res = await fetch(`http://192.168.93.107:5000/review/${data.basicInfo._id}`, {
+			const res = await fetch(`${apiBase}/review/${data.basicInfo._id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ status: 'approved' })
@@ -52,7 +74,7 @@ export default function ReviewDetails() {
 		}
 
 		try {
-			const res = await fetch(`http://192.168.93.107:5000/review/${data.basicInfo._id}`, {
+			const res = await fetch(`${apiBase}/review/${data.basicInfo._id}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ status: "rejected", rejectionReason: rejectReason })
@@ -80,7 +102,7 @@ export default function ReviewDetails() {
 		setLoading(true);
 		try {
 			// Fetch only the specific event using its ID
-			const res = await fetch(`http://192.168.93.107:5000/review/${eventId}`);
+			const res = await fetch(`${apiBase}/review/${eventId}`);
 			const json = await res.json();
 			setData(json);
 		} catch (err) {
@@ -95,7 +117,7 @@ export default function ReviewDetails() {
 	if (!data) return <View style={styles.center}><Text>No event found.</Text></View>;
 
 	const posterSource = data.basicInfo?.poster
-		? { uri: data.basicInfo.poster }
+		? { uri: `${data.basicInfo.poster.replace(/\\/g, '/')}` }
 		: require('../../../../assets/images/CEMS-4 (2).png');
 
 	return (

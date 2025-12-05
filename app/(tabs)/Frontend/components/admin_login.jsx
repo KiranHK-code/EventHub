@@ -80,23 +80,30 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 30,
+    fontSize: 32,
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 30,
+    marginBottom: 40,
     color: '#553BFF',
   },
   input: {
     backgroundColor: '#fff',
     padding: 12,
+    padding: 15,
     borderRadius: 10,
     marginTop: 15,
     elevation: 1,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
   button: {
     backgroundColor: '#553BFF',
     padding: 15,
     borderRadius: 10,
     marginTop: 30,
+    elevation: 3,
   },
   buttonText: {
     color: 'white',
@@ -105,6 +112,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   signupText: { textAlign: 'center', marginTop: 20 },
+  signupText: { textAlign: 'center', marginTop: 25, color: '#555' },
   signupLink: { color: '#553BFF', fontWeight: 'bold' },
 });
 
