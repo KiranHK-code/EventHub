@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, Dimensions, ActivityIndicator, TouchableOpacity, Alert, FlatList, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Dimensions, ActivityIndicator, TouchableOpacity, Alert, Platform } from 'react-native';
+import { useRouter } from 'expo-router';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import BottomNavBar from '../components/navbar';
 import Constants from "expo-constants";
@@ -25,6 +26,7 @@ const getBaseUrl = () => {
 };
 
 export default function NotificationsScreen() {
+  const router = useRouter();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -136,32 +138,13 @@ export default function NotificationsScreen() {
     );
   }
 
-  const renderNotificationItem = ({ item }) => (
-    <TouchableOpacity
-      style={[styles.notificationCard, !item.isRead && styles.unreadNotification]}
-      onPress={() => handleNotificationPress(item)}
-    >
-      <View style={styles.notificationContent}>
-        <View style={styles.notificationHeader}>
-          <Text style={styles.eventTitle}>{item.title}</Text>
-          {!item.isRead && <View style={styles.unreadBadge} />}
-        </View>
-        <Text style={styles.message}>{item.message}</Text>
-        <Text style={styles.timestamp}>{timeAgo(item.createdAt)}</Text>
-      </View>
-      <Icon
-        name={item.isRead ? "check-circle" : "info-circle"}
-        size={16}
-        color={item.isRead ? "#ccc" : "#7B61FF"}
-        style={styles.icon}
-      />
-    </TouchableOpacity>
-  );
-
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
         {unreadCount > 0 && (
           <View style={styles.badge}>
@@ -172,13 +155,34 @@ export default function NotificationsScreen() {
 
       {/* Notifications List */}
       {notifications.length > 0 ? (
-        <FlatList
-          data={notifications}
-          renderItem={renderNotificationItem}
-          keyExtractor={(item, index) => (item && (item._id || item.id)) || index.toString()}
-          contentContainerStyle={styles.listContent}
-          scrollEnabled={true}
-        />
+        <ScrollView 
+          style={styles.scrollContainer}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={true}
+        >
+          {notifications.map((item, index) => (
+            <TouchableOpacity
+              key={item && (item._id || item.id) || index.toString()}
+              style={[styles.notificationCard, !item.isRead && styles.unreadNotification]}
+              onPress={() => handleNotificationPress(item)}
+            >
+              <View style={styles.notificationContent}>
+                <View style={styles.notificationHeader}>
+                  <Text style={styles.eventTitle}>{item.title}</Text>
+                  {!item.isRead && <View style={styles.unreadBadge} />}
+                </View>
+                <Text style={styles.message}>{item.message}</Text>
+                <Text style={styles.timestamp}>{timeAgo(item.createdAt)}</Text>
+              </View>
+              <Icon
+                name={item.isRead ? "check-circle" : "info-circle"}
+                size={16}
+                color={item.isRead ? "#ccc" : "#7B61FF"}
+                style={styles.icon}
+              />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       ) : (
         <View style={styles.emptyContainer}>
           <Icon name="bell-slash" size={60} color="#ddd" />
@@ -198,10 +202,10 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0a0a0aff',
+    backgroundColor: '#000',
     paddingTop: 40, // Added for status bar spacing
     paddingBottom: 20,
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
     justifyContent: 'space-between',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
@@ -210,7 +214,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
   },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff',marginTop: 4 },
+  backButton: {
+    marginRight: 15,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  backButtonText: {
+    color: "#fff",
+    fontSize: 32,
+    fontWeight: "700",
+  },
+  headerTitle: { fontSize: 24, fontWeight: '700', color: '#fff', flex: 1 },
   badge: {
     backgroundColor: '#FF6B6B',
     borderRadius: 10,
@@ -220,7 +236,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   badgeText: { color: '#fff', fontWeight: '700', fontSize: 12 },
-  listContent: { paddingHorizontal: 16, paddingVertical: 16 },
+  scrollContainer: { 
+    flex: 1,
+  },
+  scrollContent: { 
+    paddingHorizontal: 16, 
+    paddingVertical: 16,
+    paddingBottom: 100, // Extra padding for bottom navbar
+  },
   notificationCard: {
     backgroundColor: '#fff',
     borderRadius: 12,

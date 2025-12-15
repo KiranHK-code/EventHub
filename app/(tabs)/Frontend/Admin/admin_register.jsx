@@ -8,10 +8,12 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { getBaseUrl } from './api';
+import BottomNavBar from '../components/navbar';
 
 export default function MyRegistrations() {
   const router = useRouter();
@@ -25,33 +27,103 @@ export default function MyRegistrations() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchRegistrations = async () => {
-      if (!eventId) return;
-      setLoading(true);
-      try {
-        const fetchUrl = `${apiBase}/api/events/${eventId}/registrations`;
-        console.log("Admin is fetching registrations from:", fetchUrl); // Add this log for debugging
-        const response = await fetch(fetchUrl);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Server error: ${response.status}. Body: ${errorText}`);
-        }
-
-        const data = await response.json();
-        if (data.success) {
-          setEventDetails(data.event);
-          setRegistrations(data.registrations || []);
-        }
-      } catch (error) {
-        console.error("Failed to fetch registrations:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchRegistrations();
   }, [eventId, apiBase]);
+
+  const handleCheckIn = async (registrationId) => {
+    try {
+      const response = await fetch(`${apiBase}/api/registrations/${registrationId}/checkin`, {
+        method: 'PUT',
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        // Update the status in the local state to give instant feedback
+        setRegistrations(prevRegistrations =>
+          prevRegistrations.map(reg =>
+            reg._id === registrationId ? { ...reg, status: 'Checked-In' } : reg
+          )
+        );
+        Alert.alert("Success", "Student has been checked in.");
+      } else {
+        Alert.alert("Check-in Failed", data.message || "Could not check in the student.");
+      }
+    } catch (error) {
+      console.error("Check-in error:", error);
+      Alert.alert("Error", "An error occurred while trying to check in.");
+    }
+  };
+
+  const handleMarkAllCheckedIn = async () => {
+    if (!eventId) {
+      Alert.alert("Error", "Event ID is missing.");
+      return;
+    }
+
+    // Confirm before proceeding
+    Alert.alert(
+      "Mark All Checked In",
+      `Are you sure you want to mark all ${registrations.length} students as checked in?`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Confirm",
+          onPress: async () => {
+            try {
+              const response = await fetch(`${apiBase}/api/events/${eventId}/checkin-all`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              });
+              const data = await response.json();
+
+              if (data.success) {
+                // Update all registrations to checked-in status
+                setRegistrations(prevRegistrations =>
+                  prevRegistrations.map(reg => ({ ...reg, status: 'Checked-In' }))
+                );
+                Alert.alert("Success", `All ${registrations.length} students have been marked as checked in.`);
+              } else {
+                Alert.alert("Failed", data.message || "Could not mark all students as checked in.");
+              }
+            } catch (error) {
+              console.error("Mark all checked in error:", error);
+              Alert.alert("Error", "An error occurred while trying to mark all students as checked in.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const fetchRegistrations = async () => {
+    if (!eventId) return;
+    setLoading(true);
+    try {
+      const fetchUrl = `${apiBase}/api/events/${eventId}/registrations`;
+      console.log("Admin is fetching registrations from:", fetchUrl);
+      const response = await fetch(fetchUrl);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Server error: ${response.status}. Body: ${errorText}`);
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        setEventDetails(data.event);
+        setRegistrations(data.registrations || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch registrations:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredRegistrations = useMemo(() => {
     if (!search) {
@@ -68,13 +140,13 @@ export default function MyRegistrations() {
       {/* Header */}
       <View style={styles.headerRow}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={26} />
+          <Ionicons name="arrow-back" size={26} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.heading}>Event Registrations</Text>
       </View>
 
       {/* Search */}
-      <View style={styles.searchContainer}>
+      <View style={[styles.searchContainer, { marginHorizontal: 15, marginTop: 15, marginBottom: 15 }]}>
         <Ionicons name="search" size={18} style={{ marginRight: 6 }} />
         <TextInput
           placeholder="Search by Name or USN"
@@ -84,7 +156,12 @@ export default function MyRegistrations() {
         />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      {/* Mark Checked In */}
+      <TouchableOpacity style={styles.markBtn} onPress={handleMarkAllCheckedIn}>
+        <Text style={{ color: "#fff", fontWeight: "600" }}>Mark All Checked In</Text>
+      </TouchableOpacity>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 15 }}>
         {/* Event Card */}
         <View style={styles.eventCard}>
           {eventDetails && (
@@ -106,6 +183,7 @@ export default function MyRegistrations() {
           <Text style={styles.tableHeadText}>USN</Text>
           <Text style={styles.tableHeadText}>Department</Text>
           <Text style={styles.tableHeadText}>Status</Text>
+          <Text style={styles.tableHeadText}>Actions</Text>
         </View>
 
         {/* Rows */}
@@ -126,9 +204,17 @@ export default function MyRegistrations() {
                 {/* STATUS */}
                 <View style={isCheckedIn ? styles.checkedInBadge : styles.statusBadge}>
                   <Text style={isCheckedIn ? styles.checkedInText : styles.registeredText}>
-                    {isCheckedIn ? 'Confirmed' : 'Registered'}
+                    {item.status || 'Registered'}
                   </Text>
                 </View>
+
+                <TouchableOpacity
+                  style={styles.checkBtn}
+                  onPress={() => handleCheckIn(item._id)}
+                  disabled={item.status === 'Checked-In'}
+                >
+                  <Text style={{ color: "#5A4FCF", fontWeight: "600" }}>Check In</Text>
+                </TouchableOpacity>
               </View>
             );
           })
@@ -140,15 +226,28 @@ export default function MyRegistrations() {
 
         <View style={{ height: 80 }} />
       </ScrollView>
+      <BottomNavBar />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#EFEAFF", padding: 15 },
+  container: { flex: 1, backgroundColor: "#EFEAFF" },
 
-  headerRow: { flexDirection: "row", alignItems: "center", marginBottom: 15 },
-  heading: { fontSize: 22, fontWeight: "700", marginLeft: 10 },
+  headerRow: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    backgroundColor: "#000",
+    padding: 24,
+    paddingTop: Platform.OS === 'android' ? 40 : 50,
+  },
+  heading: { 
+    fontSize: 24, 
+    fontWeight: "700", 
+    marginLeft: 15,
+    color: "#fff",
+    flex: 1,
+  },
 
   searchContainer: {
     backgroundColor: "#fff",
@@ -194,7 +293,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
 
-  tableHeadText: { color: "#fff", fontSize: 12, width: 80, textAlign: 'center' },
+  tableHeadText: { color: "#fff", fontSize: 12, width: 70, textAlign: 'center' },
 
   row: {
     backgroundColor: "#fff",
@@ -206,7 +305,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  rowText: { width: 80, fontSize: 12, textAlign: 'center' },
+  rowText: { width: 70, fontSize: 12, textAlign: 'center' },
 
   statusBadge: {
     backgroundColor: "#E8FDEB",
@@ -230,6 +329,21 @@ const styles = StyleSheet.create({
     color: "#5A4FCF",
     fontWeight: "600",
     fontSize: 12
+  },
+  markBtn: {
+    backgroundColor: "#6A5AE0",
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: "center",
+    marginHorizontal: 15,
+    marginTop: 0,
+    marginBottom: 10,
+  },
+  checkBtn: {
+    backgroundColor: "#EBE7FF",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   emptyContainer: {
     marginTop: 40,

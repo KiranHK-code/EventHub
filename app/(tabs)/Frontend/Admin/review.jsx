@@ -25,6 +25,7 @@ const getBaseUrl = () => {
 };
 
 export default function Review() {
+  const router = useRouter();
   const [combinedData, setCombinedData] = useState([]);
   const [activeTab, setActiveTab] = useState("pending"); // pending or approved
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -116,6 +117,14 @@ export default function Review() {
 
   return (
     <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Events</Text>
+      </View>
+
       {/* Tab Buttons */}
       <View style={styles.tabContainer}>
         <TouchableOpacity 
@@ -137,7 +146,11 @@ export default function Review() {
       </View>
 
       {/* Events List */}
-      <ScrollView style={styles.scrollContainer}>
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+      >
         {filteredEvents.length > 0 ? (
           filteredEvents.map((item, index) => (
             <View key={index} style={styles.card}>
@@ -226,7 +239,32 @@ export default function Review() {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#EFEAFE", paddingTop: 24 },
+  container: { flex: 1, backgroundColor: "#EFEAFE" },
+
+  header: {
+    padding: 24,
+    backgroundColor: "#000",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backButton: {
+    marginRight: 15,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  backButtonText: {
+    color: "#fff",
+    fontSize: 32,
+    fontWeight: "700",
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#fff",
+    flex: 1,
+  },
 
   // Tabs (same as screenshot)
   tabContainer: {
@@ -234,7 +272,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#EFEAFE",
     padding: 10,
     marginHorizontal: 12,
-    marginTop: 10,
+    marginTop: 20,
     borderRadius: 20,
   },
   tab: {
@@ -248,7 +286,13 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 14, fontWeight: "600", color: "#555" },
   activeTabText: { color: "#fff" },
 
-  scrollContainer: { padding: 12, paddingTop: 12 },
+  scrollContainer: { 
+    flex: 1,
+  },
+  scrollContent: { 
+    padding: 12, 
+    paddingBottom: 100, // Extra padding for bottom navbar
+  },
 
   // Card styling exactly like screenshot
   card: {

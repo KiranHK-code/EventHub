@@ -60,6 +60,9 @@ export default function DashboardScreen() {
       <ScrollView style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Text style={styles.backButtonText}>←</Text>
+          </TouchableOpacity>
           <Text style={styles.headerTitle}>Hello Admin!</Text>
         </View>
 
@@ -142,15 +145,28 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    padding: 20,
     padding: 24,
     backgroundColor: "#000",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backButton: {
+    marginRight: 15,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  backButtonText: {
+    color: "#fff",
+    fontSize: 32,
+    fontWeight: "700",
   },
   headerTitle: {
-    fontSize: 22,
     fontSize: 24,
     fontWeight: "700",
     color: "#fff",
+    flex: 1,
   },
 
   dashboardTitleBox: {
