@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import Constants from "expo-constants";
 
 // --- Helper functions to get the API URL ---
@@ -50,36 +50,37 @@ export default function MyRegistrations() {
   const [eventDetails, setEventDetails] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchRegistrations = async () => {
-      if (!eventId) return;
-      setLoading(true);
-      try {
-        const fetchUrl = `${apiBase}/api/events/${eventId}/registrations`;
-        console.log("Attempting to fetch registrations from:", fetchUrl); // Add this log
-        const response = await fetch(fetchUrl);
+  const fetchRegistrations = useCallback(async () => {
+    if (!eventId) return;
+    setLoading(true);
+    try {
+      const fetchUrl = `${apiBase}/api/events/${eventId}/registrations`;
+      console.log("Attempting to fetch registrations from:", fetchUrl);
+      const response = await fetch(fetchUrl);
 
-        // First, check if the response was successful (e.g., status 200-299)
-        if (!response.ok) {
-          // If not, read the response as text to see the error (likely HTML)
-          const errorText = await response.text();
-          throw new Error(`Server error: ${response.status}. Body: ${errorText}`);
-        }
-
-        const data = await response.json(); // Now it's safe to parse as JSON
-        if (data.success) {
-          setEventDetails(data.event);
-          setRegistrations(data.registrations || []); // Ensure registrations is an array
-        }
-      } catch (error) {
-        console.error("Failed to fetch registrations:", error);
-      } finally {
-        setLoading(false);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Server error: ${response.status}. Body: ${errorText}`);
       }
-    };
 
-    fetchRegistrations();
+      const data = await response.json();
+      if (data.success) {
+        setEventDetails(data.event);
+        setRegistrations(data.registrations || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch registrations:", error);
+    } finally {
+      setLoading(false);
+    }
   }, [eventId, apiBase]);
+
+  // Refresh data when screen is focused (so organizer sees updates from admin)
+  useFocusEffect(
+    useCallback(() => {
+      fetchRegistrations();
+    }, [fetchRegistrations])
+  );
 
   const handleCheckIn = async (registrationId) => {
     try {

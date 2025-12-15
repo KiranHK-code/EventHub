@@ -125,7 +125,7 @@ export default function ReviewDetails() {
 			<StatusBar barStyle="light-content" backgroundColor="#000" />
 			<View style={styles.header}>
 				<TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-					<Text style={{ color: '#fff', fontSize: 24 }}>←</Text>
+					<Text style={styles.backButtonText}>←</Text>
 				</TouchableOpacity>
 				<Text style={styles.headerTitle}>Review Event</Text>
 			</View>
@@ -249,21 +249,24 @@ const styles = StyleSheet.create({
 	header: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		paddingHorizontal: 16,
+		paddingHorizontal: 24,
+		paddingBottom: 24,
 		backgroundColor: '#000',
-		paddingBottom: 16,
 		paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 16 : 40,
 	},
 	backBtn: {
-		width: 40,
-		height: 40,
-		borderRadius: 20,
+		marginRight: 15,
+		paddingVertical: 8,
+		paddingHorizontal: 12,
 		justifyContent: 'center',
 		alignItems: 'center',
-		backgroundColor: '#1F1F1F',
-		marginRight: 12,
 	},
-	headerTitle: { color: '#fff', fontSize: 22, fontWeight: '700' },
+	backButtonText: {
+		color: '#fff',
+		fontSize: 32,
+		fontWeight: '700',
+	},
+	headerTitle: { color: '#fff', fontSize: 24, fontWeight: '700', flex: 1 },
 	poster: {
 		width: SCREEN_WIDTH,
 		height: Math.round(SCREEN_HEIGHT * 0.25),
