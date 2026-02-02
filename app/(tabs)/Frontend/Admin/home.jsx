@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Platform } from "react-native";
-import { useRouter, useFocusEffect } from "expo-router";
-import BottomNavBar from "../components/navbar";
 import Constants from "expo-constants";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useMemo, useState } from "react";
+import { ActivityIndicator, Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import BottomNavBar from "../components/navbar";
 
 const cleanUrl = (value) => {
   if (!value) return null;
@@ -152,10 +152,12 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginRight: 15,
-    paddingVertical: 8,
+    paddingVertical: 6,
     paddingHorizontal: 12,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#706f72", // Added background color
+    borderRadius: 8, // Added border radius for rounded corners
   },
   backButtonText: {
     color: "#fff",
