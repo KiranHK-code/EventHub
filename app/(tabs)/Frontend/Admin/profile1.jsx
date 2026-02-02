@@ -3,23 +3,23 @@
 // - Shows profile header, info cards, contact details, approved events list
 // - Many sample events so the approved events section is scrollable
 
-import React, { useCallback, useState, useEffect, useMemo} from 'react';
-import {useRouter, useLocalSearchParams, useFocusEffect} from 'expo-router';
-import {
-  SafeAreaView,
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar,
-  Platform,
-  Image,
-  Alert,
-} from 'react-native';
-import BottomNavBar from "../components/navbar";
-import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import Constants from "expo-constants";
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+    Alert,
+    Image,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import MaterialIcon from "react-native-vector-icons/MaterialIcons";
+import BottomNavBar from "../components/navbar";
 
 const cleanUrl = (value) => {
   if (!value) return null;
@@ -191,6 +191,11 @@ export default function ProfileScreen() {
       ? { boxShadow: '0 6px 14px rgba(0,0,0,0.08)' }
       : { shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, elevation: 3 };
 
+  const handleSignOut = () => {
+    // Clear any stored data if necessary
+    router.push('/(tabs)/Frontend/components/admin_login');
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
@@ -249,6 +254,14 @@ export default function ProfileScreen() {
             <Text style={styles.editButtonText}>Edit Profile</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Sign Out Button */}
+        <TouchableOpacity
+          style={styles.signOutButton}
+          onPress={handleSignOut}
+        >
+          <Text style={styles.signOutButtonText}>Sign Out</Text>
+        </TouchableOpacity>
 
         {/* Info card */}
         <Text style={styles.sectionTitle}>Info</Text>
@@ -460,4 +473,18 @@ const styles = StyleSheet.create({
 
   viewButton: { backgroundColor: '#6f52ff', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, alignSelf: 'flex-end' },
   viewButtonText: { color: '#fff', fontWeight: '700' },
+
+  signOutButton: {
+    backgroundColor: '#FF3B30',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  signOutButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+  },
 });
