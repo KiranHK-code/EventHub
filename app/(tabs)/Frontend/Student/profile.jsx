@@ -1,23 +1,23 @@
-import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
-import React, { useState, useCallback, memo, useEffect, useMemo } from "react";
-import {
-  SafeAreaView,
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  FlatList,
-  StatusBar,
-  Dimensions,
-  Image,
-  Platform,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
-import BottomNavBar from "../components/navbar";
-import Icon from "react-native-vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
+import {
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    FlatList,
+    Image,
+    Platform,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import Icon from "react-native-vector-icons/MaterialIcons";
+import BottomNavBar from "../components/navbar";
 
 // NOTE: You must install 'expo-image-picker' for this feature to work!
 // import * as ImagePicker from 'expo-image-picker'; 
@@ -298,6 +298,15 @@ export default function ProfileScreen() {
     }
   }, []);
 
+  const handleSignOut = async () => {
+    try {
+      await AsyncStorage.removeItem("userProfile");
+      router.replace("/(tabs)/Frontend/components/student_login");
+    } catch (error) {
+      console.error("Failed to sign out:", error);
+    }
+  };
+
   const goBack = () => router.back();
   const onViewAll = () => router.push("/(tabs)/Frontend/Student/register"); 
   const onViewDetails = useCallback((item) => router.push({ pathname: "/(tabs)/Frontend/Student/EventDetailsScreen", params: { eventId: item.basicInfo._id } }), []);
@@ -377,6 +386,19 @@ export default function ProfileScreen() {
         ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
         ListFooterComponent={<View style={{ height: 110 }} />}
       />
+
+      <TouchableOpacity
+        style={{
+          backgroundColor: "#6F45F0",
+          padding: 10,
+          borderRadius: 5,
+          alignItems: "center",
+          margin: 20,
+        }}
+        onPress={handleSignOut}
+      >
+        <Text style={{ color: "#FFF", fontWeight: "bold" }}>Sign Out</Text>
+      </TouchableOpacity>
 
       <BottomNavBar />
     </SafeAreaView>
