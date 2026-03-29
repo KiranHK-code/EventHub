@@ -3,9 +3,11 @@ const router = express.Router();
 const Admin = require('../models/Admin');
 const jwt = require('jsonwebtoken');
 
+const adminJwtSecret = process.env.JWT_SECRET_ADMIN || 'your_jwt_secret_admin';
+
 // Generate Token
 const generateToken = (id) => {
-  return jwt.sign({ id }, 'your_jwt_secret_admin', { // Replace with a real secret
+  return jwt.sign({ id }, adminJwtSecret, {
     expiresIn: '30d',
   });
 };

@@ -3,6 +3,8 @@ const router = express.Router();
 const Organizer = require('../models/Organizer');
 const jwt = require('jsonwebtoken');
 
+const jwtSecret = process.env.JWT_SECRET || 'your_jwt_secret';
+
 router.post('/signup', async (req, res) => {
   try {
     const { organizerName, email, password, staffId } = req.body;
@@ -41,7 +43,7 @@ router.post('/login', async (req, res) => {
         return res.status(400).json({ message: 'Invalid credentials' });
       }
   
-      const token = jwt.sign({ id: organizer._id }, 'your_jwt_secret', {
+      const token = jwt.sign({ id: organizer._id }, jwtSecret, {
         expiresIn: '1h',
       });
   
