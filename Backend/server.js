@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -11,8 +12,10 @@ const path = require('path');
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ----------------- CONNECT MONGODB -----------------
+const MONGO_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/CEMS";
+
 mongoose
-  .connect("mongodb://127.0.0.1:27017/CEMS")
+  .connect(MONGO_URI)
   .then(() => console.log("MongoDB Connected"))
   .catch((err) => console.log(err));
 
@@ -756,4 +759,5 @@ app.put("/api/registrations/:registrationId/checkin", async (req, res) => {
 });
 
 // ---------------------------------------------------------
-app.listen(5000, () => console.log("Server running on port 5000"));
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

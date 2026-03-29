@@ -3,9 +3,11 @@ const router = express.Router();
 const Student = require('../models/Student');
 const jwt = require('jsonwebtoken');
 
+const jwtSecret = process.env.JWT_SECRET || 'your_jwt_secret';
+
 // Generate Token
 const generateToken = (id) => {
-  return jwt.sign({ id }, 'your_jwt_secret', { // Replace 'your_jwt_secret' with a real secret from environment variables
+  return jwt.sign({ id }, jwtSecret, {
     expiresIn: '30d',
   });
 };
